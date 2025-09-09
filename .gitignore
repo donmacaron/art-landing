@@ -1,0 +1,32 @@
+# === Python (backend) ===
+.venv/
+backend/__pycache__/
+backend/*.py[cod]
+backend/.venv/
+backend/venv/
+backend/env/
+backend/.mypy_cache/
+backend/.pytest_cache/
+backend/.coverage
+backend/coverage.xml
+backend/htmlcov/
+
+# Logs / misc
+*.log
+
+# === Node / Vite (frontend) ===
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Optional: ignore lockfiles if you don’t want them in git
+# (remove these lines if you DO want reproducible installs)
+frontend/package-lock.json
+frontend/yarn.lock
+frontend/pnpm-lock.yaml
+
+# === Common IDE / OS files ===
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
