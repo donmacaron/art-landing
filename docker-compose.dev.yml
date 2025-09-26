@@ -1,0 +1,41 @@
+# docker-compose.dev.yml
+version: "3.8"
+
+services:
+  backend:
+    image: python:3.11-slim
+    container_name: eden-backend-dev
+    working_dir: /app
+    volumes:
+      - ./backend:/app:delegated
+      - /app/__pycache__
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FLASK_ENV=development
+    command: ["python", "-u", "app.py"]
+    networks:
+      - eden-net
+
+  frontend:
+    image: node:20
+    container_name: eden-frontend-dev
+    working_dir: /app
+    volumes:
+      - ./frontend:/app:delegated
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - BACKEND_URL=http://backend:5000
+    command: [ "sh", "-c", "npm install --no-audit --no-fund && npm run dev -- --host" ]
+    depends_on:
+      - backend
+    networks:
+      - eden-net
+
+networks:
+  eden-net:
+    driver: bridge

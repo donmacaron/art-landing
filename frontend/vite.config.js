@@ -1,13 +1,16 @@
+// vite.config.js
 import { defineConfig } from 'vite'
 import path from 'path'
 
+const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+
 export default defineConfig({
   server: {
+    host: true, // allow access from outside container
     port: 5173,
     proxy: {
-      // всё что начинается на /api будет проксироваться на Flask
       '/api': {
-        target: 'http://localhost:5000',
+        target: backendUrl,
         changeOrigin: true,
         secure: false
       }
