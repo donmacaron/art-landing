@@ -3,15 +3,33 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Vite + Flask demo</title>
+    <title>Art landing — preload</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div id="logo">
-      <img src="/logo.png" alt="logo" />
-    </div>
+    <!-- Three.js canvas will be appended by script -->
 
-    <div id="app"></div>
+    <div id="ui-overlay">
+      <!-- left-top persistent logo -->
+      <div id="top-left">
+        <img id="logo-left" src="/left-logo.svg" alt="Left Logo" />
+      </div>
+
+      <!-- central preloader (Lottie) -->
+      <div id="preloader">
+        <div id="lottie-container" aria-hidden="true"></div>
+        <div id="preloader-title" aria-hidden="true">PRIVATE RESIDENCE</div>
+      </div>
+
+      <!-- right-top persistent items -->
+      <div id="top-right">
+        <button id="sound-btn" aria-pressed="false">
+          <span>Sound on</span>
+          <img class="icon" src="/sound-icon.svg" alt="" />
+          
+        </button>
+      </div>
+    </div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

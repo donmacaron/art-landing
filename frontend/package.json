@@ -12,6 +12,8 @@
     "vite": "^7.1.2"
   },
   "dependencies": {
+    "lil-gui": "^0.20.0",
+    "lottie-web": "^5.13.0",
     "three": "^0.179.1"
   }
 }

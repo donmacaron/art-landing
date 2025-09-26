@@ -3,9 +3,9 @@ from pathlib import Path
 
 app = Flask(__name__)
 
-@app.route('/api/hello')
-def hello():
-    return jsonify({"msg": "Hello from Flask!"})
+# @app.route('/api/hello')
+# def hello():
+#     return jsonify({"msg": "Hello from Flask!"})
 
 # Production: отдаём собранный фронтенд (vite build -> frontend/dist)
 @app.route('/', defaults={'path': ''})

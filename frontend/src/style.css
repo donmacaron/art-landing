@@ -1,17 +1,160 @@
-html,body {
-  margin:0;
-  height:100%;
-  background:#111;
-  overflow:hidden;
-  font-family: sans-serif;
+/* Fonts */
+@font-face {
+  font-family: 'UIFont';
+  src: url('/fonts/font1.woff2') format('woff2'),
+       url('/fonts/font1.woff') format('woff'),
+       url('/fonts/font1.ttf') format('truetype'); /* optional fallback */
+  /* font-weight: 400; */
+  font-style: normal;
+  font-display: swap;
 }
-#logo {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
-  pointer-events: none;
+@font-face {
+  font-family: 'TextFont';
+  src: url('/fonts/font2.woff2') format('woff2'),
+       url('/fonts/font2.woff') format('woff'),
+       url('/fonts/font2.ttf') format('truetype'); /* optional fallback */
+  /* font-weight: 400; */
+  font-style: normal;
+  font-display: swap;
 }
-#logo img { height: 60px; display:block; }
+
+
+
+/* base */
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden; /* no scroll */
+  background: #E9E6E4; /* page background */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: url('/bg_plants.png');
+  background-repeat: no-repeat;
+  background-position: center center; /* Centers horizontally and vertically */
+  background-size: cover; /* Ensures the image covers the entire element while maintaining aspect ratio */
+}
+
+/* canvas full screen */
 canvas { display:block; width:100vw; height:100vh; }
+
+/* overlay container */
+#ui-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+}
+
+
+/* background image container (behind page content) */
+#ink-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0; /* behind UI (UI overlay uses z-index 60) */
+  background-position: center center;
+  background-size: auto;
+  background-repeat: no-repeat;
+  /* will-change: transform, opacity; */
+}
+
+/* veil canvas that hides the background and will receive punched holes */
+#ink-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 30; /* below preloader UI (which must be >30), above most page content */
+  pointer-events: none; /* allow pointer events to pass through; we listen on window */
+}
+
+/* ensure preloader overlay sits above veil (your existing overlay had z-index:60) */
+/* If needed, ensure #ui-overlay { z-index: 60; } */
+
+
+
+
+/* LEFT TOP logo */
+#top-left {
+  position: absolute;
+  left: 25px;
+  top: 32px;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 600ms ease, transform 600ms ease;
+}
+#top-left.visible { opacity: 1; transform: translateY(0); }
+#logo-left { width: 200px; height: auto; display: block; }
+
+/* center preloader */
+#preloader {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+#lottie-container { width: 220px; height: 220px; pointer-events: none; }
+
+/* preloader title (will use TextFont) */
+#preloader-title {
+  color: #8E887E;
+  font-size: 25px;
+  letter-spacing: 2px;
+  margin-top: 8px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 400ms ease, transform 400ms ease;
+  pointer-events: none;
+  font-family: 'UIFont', serif;
+  letter-spacing: 10px;
+}
+
+#preloader-title.visible {
+  opacity: 1;
+}
+
+/* RIGHT TOP sound button */
+#top-right {
+  position: absolute;
+  right: 25px;
+  top: 32px;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 600ms ease, transform 600ms ease;
+}
+#top-right.visible { opacity: 1; transform: translateY(0); }
+
+
+#sound-btn {
+  font-family: 'UIFont', sans-serif;
+  font-size: 1rem;
+  padding: 5px 24px;
+  background: #E9E6E4;
+  border: 1px solid #8E887E;
+  color: #8E887E;
+  display: flex;              /* puts text + icon on one line */
+  align-items: center;        /* vertically centers both */
+  justify-content: center;    /* keeps them centered in button */
+  gap: 8px;                   /* space between text & icon */
+  border-radius: 999px;       /* pill shape */
+  cursor: pointer;
+  width: 150px;
+}
+#sound-btn .icon { width: 16px; height: 16px; display:block; }
+
+/* small responsive tweaks */
+@media (max-width: 640px) {
+  #lottie-container { width: 160px; height: 160px; }
+  #logo-left { width: 68px; }
+  #sound-btn { padding: 6px 10px; font-size: 12px; }
+}
+

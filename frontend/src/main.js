@@ -1,62 +1,127 @@
-import * as THREE from 'three';
+// src/main.js
+import lottie from 'lottie-web';
 import './style.css';
 
-// создаём canvas и WebGLRenderer (вставляем canvas в body)
-const canvas = document.createElement('canvas');
-canvas.id = 'three-canvas';
-document.body.appendChild(canvas);
+import { initInkReveal } from './ink.js';
+import { initSound } from './sound.js';
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+/* ===========================
+   CODE-LEVEL SWITCH
+   ===========================
+*/
+export const LOAD_3D = false; // 3D off for now
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0e0e0e);
+/* ===========================
+   INK CONFIG — adjust here
+   ===========================
+*/
+export const INK_CONFIG = {
+  imageUrl: '/bg_plants.png',
+  veilColor: '#E9E6E4',
+  activation: 'click',    // 'hold' or 'click'
+  holdTime: 600,
+  clickHoldMin: 80,
+  growthSpeed: 220,
+  maxRadius: 360,
+  feather: 0.55,
+  permanentOnMax: false,
+  multiple: false,
+  followWhileGrowing: false,
+  blobs: 10,
+  jitter: 0.45,
+  noiseFactor: 0.6
+};
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.z = 3;
+/* ========== params (shared with scene.js if loaded) ========== */
+export const params = {
+  modelPath: '/models/plants.glb',
+  sceneBg: '#E9E6E4',
+  modelColor: '#E9E6E4',
+  frustumSize: 2.5,
+  cameraStart: { x: 0, y: 0, z: 5 },
+  fogColor: '#E9E6E4',
+  fogNear: 1,
+  fogFar: 12,
+  bgImage: INK_CONFIG.imageUrl
+};
 
-const light = new THREE.DirectionalLight(0xffffff, 1.0);
-light.position.set(5, 10, 7);
-scene.add(light);
+/* ========== UI refs ========== */
+const lottieContainerId = 'lottie-container';
+const preloaderTitle = document.getElementById('preloader-title');
+const topRight = document.getElementById('top-right');
+const topLeft = document.getElementById('top-left');
+const soundBtn = document.getElementById('sound-btn');
 
-const ambient = new THREE.AmbientLight(0x404040, 0.6);
-scene.add(ambient);
-
-const geometry = new THREE.BoxGeometry(1,1,1);
-const material = new THREE.MeshStandardMaterial({ color: 0x44aa88 });
-const cube = new THREE.Mesh(geometry, material);
-scene.add(cube);
-
-// Handle resize
-window.addEventListener('resize', () => {
-  const w = window.innerWidth, h = window.innerHeight;
-  renderer.setSize(w, h);
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
+/* ========== Lottie preloader ========== */
+const animation = lottie.loadAnimation({
+  container: document.getElementById(lottieContainerId),
+  renderer: 'svg',
+  loop: false,
+  autoplay: true,
+  path: '/loader.json'
 });
 
-// Animation loop
-function animate() {
-  requestAnimationFrame(animate);
-  cube.rotation.x += 0.01;
-  cube.rotation.y += 0.01;
-  renderer.render(scene, camera);
-}
-animate();
+let animationCompleted = false;
+let sceneLoaded = false;
+let sceneModule = null;
 
-// Test API call — this will be proxied to Flask (http://localhost:5000/api/hello)
-fetch('/api/hello')
-  .then(r => r.json())
-  .then(j => {
-    console.log('API response:', j);
-    const el = document.createElement('div');
-    el.textContent = j.msg;
-    el.style.position = 'fixed';
-    el.style.left = '20px';
-    el.style.top = '80px';
-    el.style.color = '#fff';
-    el.style.zIndex = 30;
-    document.body.appendChild(el);
-  })
-  .catch(err => console.error('API error:', err));
+animation.addEventListener('complete', () => {
+  animationCompleted = true;
+  if (!LOAD_3D) {
+    finalizePreloader();
+    return;
+  }
+  if (sceneLoaded) finalizePreloader();
+});
+animation.addEventListener('DOMLoaded', () => { /* no-op */ });
+
+function finalizePreloader() {
+  try {
+    const total = animation.totalFrames || Math.round((animation.getDuration ? animation.getDuration(true) : 1) * 60) || 1;
+    if (typeof animation.goToAndStop === 'function') {
+      animation.goToAndStop(Math.max(0, total - 1), true);
+    } else if (typeof animation.pause === 'function') {
+      animation.pause();
+    }
+  } catch (e) {
+    console.warn('Could not stop lottie on last frame:', e);
+  }
+
+  topLeft?.classList.add('visible');
+  topRight?.classList.add('visible');
+
+  if (preloaderTitle) {
+    preloaderTitle.textContent = 'PRIVATE RESIDENCE';
+    preloaderTitle.classList.add('visible');
+  }
+}
+
+/* ========== Scene loader guard (unchanged) ========== */
+async function startSceneIfNeeded() {
+  if (!LOAD_3D) {
+    sceneLoaded = true;
+    return;
+  }
+  try {
+    sceneModule = await import('./scene.js');
+    await sceneModule.initScene(params);
+    sceneLoaded = true;
+    if (animationCompleted) finalizePreloader();
+  } catch (err) {
+    console.error('Error initializing scene module:', err);
+    sceneLoaded = true;
+    setTimeout(() => { if (animationCompleted) finalizePreloader(); }, 300);
+  }
+}
+startSceneIfNeeded();
+
+/* ===========================
+   Initialize ink reveal and sound
+   ===========================
+*/
+const ink = initInkReveal(INK_CONFIG);
+window.__ink = ink; // debug
+
+// initialize sound system and bind to button (if present)
+const sound = initSound({ button: soundBtn }); // returns API (start/stop/toggle)
+window.__sound = sound;
