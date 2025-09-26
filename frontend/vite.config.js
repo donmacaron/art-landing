@@ -6,6 +6,7 @@ const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
 
 export default defineConfig({
   server: {
+    allowedHosts: ['eden.donmacaron.net'],
     host: true, // allow access from outside container
     port: 5173,
     proxy: {
