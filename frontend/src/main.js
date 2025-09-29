@@ -116,12 +116,85 @@ async function startSceneIfNeeded() {
 startSceneIfNeeded();
 
 /* ===========================
+   Helpers: persistent settings
+   ===========================
+*/
+const GHOST_STORAGE_KEY = 'ghostEnabled';
+
+// read persisted ghost setting (fall back to false)
+function readGhostPref() {
+  try {
+    return localStorage.getItem(GHOST_STORAGE_KEY) === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+function writeGhostPref(val) {
+  try {
+    localStorage.setItem(GHOST_STORAGE_KEY, val ? 'true' : 'false');
+  } catch (e) { /* ignore */ }
+}
+
+/* ===========================
    Initialize ink reveal and sound
    ===========================
 */
-const ink = initInkReveal(INK_CONFIG);
+const initialGhostEnabled = readGhostPref(); // don't load ghost.js unless true
+
+// pass ghost flag into initInkReveal via options (ink module will lazy-load ghost.js only when enabled)
+const inkOptions = Object.assign({}, INK_CONFIG, { ghost: { enabled: initialGhostEnabled } });
+
+const ink = initInkReveal(inkOptions);
 window.__ink = ink; // debug
 
 // initialize sound system and bind to button (if present)
-const sound = initSound({ button: soundBtn }); // returns API (start/stop/toggle)
+const sound = initSound({ button: soundBtn }); // your sound.js should expose initSound
 window.__sound = sound;
+
+/* ===========================
+   Ghost toggle UI wiring (optional)
+   - supports checkbox#ghost-toggle (preferred) or button#ghost-btn
+   ===========================
+*/
+function setupGhostUI() {
+  // checkbox control (preferred)
+  const chk = document.getElementById('ghost-toggle');
+  if (chk && (chk.type === 'checkbox' || chk.getAttribute('role') === 'switch')) {
+    chk.checked = initialGhostEnabled;
+    chk.addEventListener('change', async (e) => {
+      const on = Boolean(e.target.checked);
+      writeGhostPref(on);
+      await ink.setGhostEnabled(on); // lazy-loads ghost.js on demand
+    }, { passive: true });
+    return;
+  }
+
+  // fallback: toggle button
+  const btn = document.getElementById('ghost-btn');
+  if (btn) {
+    const reflect = (on) => {
+      btn.setAttribute('aria-pressed', String(Boolean(on)));
+      btn.classList.toggle('on', Boolean(on));
+    };
+    reflect(initialGhostEnabled);
+    btn.addEventListener('click', async () => {
+      const current = readGhostPref();
+      const next = !current;
+      writeGhostPref(next);
+      reflect(next);
+      await ink.setGhostEnabled(next);
+    });
+  }
+}
+setupGhostUI();
+
+/* ===========================
+   Optional: expose small control helpers to console
+   ===========================
+*/
+window.__toggleGhosts = async (on) => {
+  await ink.setGhostEnabled(Boolean(on));
+  writeGhostPref(Boolean(on));
+};
+
+/* done */

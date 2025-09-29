@@ -1,51 +1,48 @@
 // src/ink.js
+// Optimized ink veil with smoother time-based animation and organic splash shapes.
 // Exports initInkReveal(options) -> API { destroy(), resetAll(), removeLast(), getSplashes(), setOptimization() }
 
 export function initInkReveal(options = {}) {
   const defaults = {
-    // visual / UX
     imageUrl: '/bg_plants.png',
     veilColor: '#E9E6E4',
     activation: 'click', // 'click' | 'hold'
     holdTime: 600,
-    growthSpeed: 220,
-    maxRadius: 360,
-    permanentOnMax: false,
-    blobs: 8,
-    jitter: 0.45,
 
-    // concurrency / optimization
-    maxActiveSplashes: 3,
+    // animation timing (ms)
+    growDuration: 2500,    // ms to grow from 0 -> final radius
+    lifetime: 1200,       // ms to stay at final radius before shrinking
+    shrinkDuration: 2800,  // ms to shrink final radius -> 0
+
+    // radius
+    maxRadius: 360,       // logical px maximum
+    minRadius: 100,        // minimum final radius
+
+    // shape / appearance
+    pointCount: 28,       // points around circle to create shape
+    blobs: 2,             // number of inner sub-blobs to add
+    jitter: 0.55,         // irregularity amount for sub-blobs
+    edgeRoughness: 0.2,  // 0..1 how spiky/irregular the main silhouette is
+    noiseFactor: 0.36,    // noise holes intensity
+
+    // performance
+    maxActiveSplashes: 2,
     maxConcurrentDraw: 3,
-    maxNoisePerSplash: 40,
-    blurThreshold: 6,
-    smallRadiusSkip: 0.9,
-    maxBlobParts: 10,
-    noiseFactor: 0.6,
+    maxNoisePerSplash: 16,
+    blurInMask: true,     // apply blur inside offscreen mask
+    offscreenDPR: 1.0,    // 1 or devicePixelRatio (quality vs cost)
 
-    // ghost ripples (autonomous water-touch)
-    ghost: {
-      enabled: true,
-      ratePerSec: 0.6,       // average spawns per second
-      maxConcurrent: 3,      // concurrent ghost ripples
-      maxRadius: 120,        // ghost max radius
-      alpha: 0.36,           // transparency when cutting the veil (0..1)
-      drift: 6,              // px/sec drift
-      lifetime: 2200,        // ms (approx) how long a ghost exists
-      jitter: 0.35,          // shape jitter for ghosts
-      cacheSize: 256,        // offscreen cache size for blob mask
-      useOffscreenCache: true
-    }
+    // misc
+    smallRadiusSkip: 1.0
   };
 
-  const cfg = Object.assign({}, defaults, options);
-  // ensure nested ghost merges if options provided partially
-  cfg.ghost = Object.assign({}, defaults.ghost, options.ghost || {});
+  const cfg = Object.assign({}, defaults, options || {});
+  cfg.pointCount = Math.max(8, Math.min(64, cfg.pointCount));
+  cfg.blobs = Math.max(0, cfg.blobs);
+  cfg.maxActiveSplashes = Math.max(1, Math.floor(cfg.maxActiveSplashes));
+  cfg.maxConcurrentDraw = Math.max(1, Math.floor(cfg.maxConcurrentDraw));
 
-  // clamp blob parts
-  const blobCount = Math.max(3, Math.min(cfg.maxBlobParts, cfg.blobs));
-
-  // create bg div
+  // ---- DOM ----
   let bg = document.getElementById('ink-bg');
   if (!bg) {
     bg = document.createElement('div');
@@ -58,7 +55,6 @@ export function initInkReveal(options = {}) {
   bg.style.pointerEvents = 'none';
   bg.style.zIndex = '0';
 
-  // veil canvas
   let canvas = document.getElementById('ink-veil');
   if (!canvas) {
     canvas = document.createElement('canvas');
@@ -71,7 +67,6 @@ export function initInkReveal(options = {}) {
   canvas.style.pointerEvents = 'none';
   const ctx = canvas.getContext('2d', { alpha: true });
 
-  // DPR-aware resize
   function resize() {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     canvas.width = Math.max(1, Math.floor(window.innerWidth * dpr));
@@ -91,33 +86,136 @@ export function initInkReveal(options = {}) {
     ctx.restore();
   }
 
-  // state
+  // ---- state ----
   let lastPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   let lastMoveTime = performance.now();
-  let pointerDownTime = 0;
   let pointerWasDown = false;
   let pointerMoveDuringDown = 0;
+  const splashes = []; // each: { cx,cy,phase,startTime,duration,startR,endR,radius,permanent,offcanvas,maskSize,createdAt }
 
-  const splashes = []; // interactive splashes
-  const ghosts = [];   // autonomous ghost ripples
-
-  // offscreen cache for a ghost mask (performance)
-  let ghostCacheCanvas = null;
-  let ghostCacheReady = false;
-
-  function makeBlobLayout(baseRadius, parts = blobCount, jitter = cfg.jitter) {
-    const layout = [];
-    for (let i = 0; i < parts; i++) {
-      const angle = (Math.PI * 2 * i) / parts + (Math.random() - 0.5) * 0.8;
-      const ox = Math.cos(angle) * baseRadius * (0.2 + Math.random() * jitter);
-      const oy = Math.sin(angle) * baseRadius * (0.2 + Math.random() * jitter);
-      const rr = baseRadius * (0.35 + Math.random() * 0.7);
-      layout.push({ ox, oy, rr });
+  // ---- helpers: shape generation ----
+  // returns array of points [ {x,y} ] around center at radius baseR (unscaled)
+  function generateIrregularRing(baseR, pointCount, roughness) {
+    const pts = [];
+    const phase = Math.random() * Math.PI * 2;
+    for (let i = 0; i < pointCount; i++) {
+      const a = (i / pointCount) * Math.PI * 2;
+      // combine several noise sources for organic shape
+      const noise = 0.4 * (0.5 + Math.sin(a * (2 + Math.random() * 3) + phase) * 0.5)
+                  + 0.6 * (0.5 + (Math.random() - 0.5));
+      const r = baseR * (0.6 + roughness * noise);
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
+      pts.push({ x, y });
     }
-    return layout;
+    return pts;
   }
 
-  function createSplash(x, y) {
+  // convert ring points into smooth path on given context centered at cx,cy
+  function drawSmoothPathToContext(octx, cx, cy, pts) {
+    if (!pts || pts.length === 0) return;
+    // move to first
+    octx.beginPath();
+    const first = pts[0];
+    octx.moveTo(cx + first.x, cy + first.y);
+    // use quadratic curves between points for smoothing
+    for (let i = 1; i <= pts.length; i++) {
+      const cur = pts[i % pts.length];
+      const prev = pts[(i - 1) % pts.length];
+      const midx = (prev.x + cur.x) / 2;
+      const midy = (prev.y + cur.y) / 2;
+      octx.quadraticCurveTo(cx + prev.x, cy + prev.y, cx + midx, cy + midy);
+    }
+    octx.closePath();
+    octx.fill();
+  }
+
+  // create offscreen mask canvas for a splash (baseRadius = final radius)
+  function createMaskCanvas(baseRadius, pointCount, blobs, jitter, roughness) {
+    const offscreenDPR = Math.max(1, cfg.offscreenDPR || 1);
+    // size in CSS px
+    const size = Math.ceil(baseRadius * 2 + 8); // little padding
+    const w = Math.max(8, Math.floor(size * offscreenDPR));
+    const h = w;
+    const off = document.createElement('canvas');
+    off.width = w;
+    off.height = h;
+    const octx = off.getContext('2d');
+
+    // center
+    const cx = w / 2;
+    const cy = h / 2;
+    octx.clearRect(0, 0, w, h);
+
+    // draw main blot: white inner -> transparent outer by drawing filled path and optionally blurring later
+    octx.save();
+    octx.fillStyle = 'rgba(255,255,255,1)';
+    const pts = generateIrregularRing(baseRadius, pointCount, roughness);
+    // scale coords to offscreen DPR/size: pts are in px relative to baseRadius
+    // convert pts (which use baseRadius) to off-canvas units
+    // we used baseRadius in px, and size ~ baseRadius*2. We'll assume proportional mapping:
+    const scale = (w / size);
+    // compose scaled points
+    const scaled = pts.map(p => ({ x: p.x * scale, y: p.y * scale }));
+    // draw path
+    drawSmoothPathToContext(octx, cx, cy, scaled);
+
+    // draw a few inner blobs to produce petals/holes
+    for (let b = 0; b < blobs; b++) {
+      const br = baseRadius * (0.15 + Math.random() * 0.35) * scale;
+      const ang = Math.random() * Math.PI * 2;
+      const offx = Math.cos(ang) * baseRadius * (0.15 + Math.random() * jitter) * scale;
+      const offy = Math.sin(ang) * baseRadius * (0.15 + Math.random() * jitter) * scale;
+      const g = octx.createRadialGradient(cx + offx, cy + offy, Math.max(1, br * 0.12), cx + offx, cy + offy, br);
+      g.addColorStop(0, 'rgba(255,255,255,1)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      octx.fillStyle = g;
+      octx.beginPath();
+      octx.arc(cx + offx, cy + offy, br, 0, Math.PI * 2);
+      octx.fill();
+    }
+
+    // small noise dots inside blot to make texture
+    const noiseCount = Math.max(4, Math.min(cfg.maxNoisePerSplash, Math.round((w / 100) * 6)));
+    octx.fillStyle = 'rgba(255,255,255,0.65)';
+    for (let n = 0; n < noiseCount; n++) {
+      const ang = Math.random() * Math.PI * 2;
+      const rr = Math.random() * (w / 2 * 0.85);
+      const nx = cx + Math.cos(ang) * rr * (0.3 + Math.random() * 0.9);
+      const ny = cy + Math.sin(ang) * rr * (0.3 + Math.random() * 0.9);
+      const nr = Math.random() * Math.max(0.6, w * 0.005);
+      octx.beginPath();
+      octx.arc(nx, ny, nr, 0, Math.PI * 2);
+      octx.fill();
+    }
+
+    octx.restore();
+
+    // optional cheap blur inside offscreen canvas (smoothing edges)
+    if (cfg.blurInMask && typeof octx.filter !== 'undefined') {
+      try {
+        // apply small blur via filter: copy to tmp, apply filter when drawing back
+        const tmp = document.createElement('canvas');
+        tmp.width = w; tmp.height = h;
+        const tctx = tmp.getContext('2d');
+        tctx.clearRect(0, 0, w, h);
+        tctx.drawImage(off, 0, 0);
+        octx.clearRect(0, 0, w, h);
+        octx.filter = `blur(${Math.max(1, Math.round(w / 200))}px)`;
+        octx.drawImage(tmp, 0, 0);
+        octx.filter = 'none';
+      } catch (e) {
+        // ignore
+        octx.filter = 'none';
+      }
+    }
+
+    // returned mask: white->transparent image sized w x h, logical size = size (px)
+    return { canvas: off, maskSize: size };
+  }
+
+  // create splash with time-based animation params
+  function spawnSplash(cx, cy) {
     // enforce active limit
     if (splashes.length >= cfg.maxActiveSplashes) {
       let foundIdx = -1, oldest = Infinity;
@@ -128,292 +226,149 @@ export function initInkReveal(options = {}) {
         }
       }
       if (foundIdx >= 0) {
-        splashes[foundIdx].growing = false;
-        splashes[foundIdx].targetRadius = 0;
+        // accelerate removal of oldest by starting shrink immediately
+        const s = splashes[foundIdx];
+        s.phase = 'shrinking';
+        s.startTime = performance.now();
+        s.startR = s.radius;
+        s.endR = 0;
+        s.duration = cfg.shrinkDuration;
       } else {
-        splashes.shift();
+        // all permanent, drop oldest
+        const removed = splashes.shift();
+        if (removed && removed.offcanvas) {
+          // let GC handle offcanvas
+        }
       }
     }
 
+    const finalR = Math.max(cfg.minRadius, Math.min(cfg.maxRadius, Math.round(cfg.minRadius + Math.random() * (cfg.maxRadius - cfg.minRadius))));
+    const parts = cfg.pointCount;
+    const mask = createMaskCanvas(finalR, parts, cfg.blobs, cfg.jitter, cfg.edgeRoughness);
+
+    const now = performance.now();
     const s = {
-      cx: x, cy: y,
-      layout: makeBlobLayout(cfg.maxRadius),
-      targetRadius: Math.max(6, cfg.maxRadius * 0.06),
+      cx,
+      cy,
+      phase: 'growing', // growing -> steady -> shrinking
+      startTime: now,
+      duration: cfg.growDuration,
+      startR: 0,
+      endR: finalR,
       radius: 0,
-      permanent: cfg.permanentOnMax === true ? false : false,
-      growing: true,
-      createdAt: performance.now()
+      permanent: false,
+      createdAt: now,
+      offcanvas: mask.canvas,
+      maskSize: mask.maskSize
     };
     splashes.push(s);
     return s;
   }
 
-  // --- Ghosts ---
-  function ensureGhostCache() {
-    if (ghostCacheReady) return;
-    if (!cfg.ghost.useOffscreenCache) {
-      ghostCacheReady = false;
-      return;
-    }
-    const size = Math.max(64, Math.min(1024, cfg.ghost.cacheSize || 256));
-    const off = document.createElement('canvas');
-    off.width = size;
-    off.height = size;
-    const octx = off.getContext('2d');
-
-    // draw a soft irregular blob to the offscreen canvas
-    const center = size / 2;
-    const baseR = size * 0.46;
-    const parts = Math.max(4, Math.min(16, Math.floor(cfg.blobs / 1.5)));
-    const layout = makeBlobLayout(baseR, parts, cfg.ghost.jitter || 0.35);
-
-    // start with full opaque circle and cut holes (we will use it as mask)
-    octx.clearRect(0, 0, size, size);
-
-    // Draw multiple radial gradients (white inner -> transparent outer)
-    for (let i = 0; i < layout.length; i++) {
-      const b = layout[i];
-      const br = Math.max(2, b.rr);
-      const bx = center + b.ox;
-      const by = center + b.oy;
-      const g = octx.createRadialGradient(bx, by, br * 0.12, bx, by, br);
-      g.addColorStop(0, 'rgba(255,255,255,1)');
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      octx.fillStyle = g;
-      octx.beginPath();
-      octx.arc(bx, by, br, 0, Math.PI * 2);
-      octx.fill();
-    }
-
-    // Add light noise dots to make it organic
-    const noiseCount = Math.max(8, Math.min(180, Math.round(size * 0.08)));
-    octx.fillStyle = 'rgba(255,255,255,0.5)';
-    for (let i = 0; i < noiseCount; i++) {
-      const ang = Math.random() * Math.PI * 2;
-      const rr = Math.random() * baseR;
-      const nx = center + Math.cos(ang) * rr * (0.6 + Math.random() * 0.8);
-      const ny = center + Math.sin(ang) * rr * (0.6 + Math.random() * 0.8);
-      const nr = Math.random() * (Math.max(0.6, size * 0.006));
-      octx.beginPath();
-      octx.arc(nx, ny, nr, 0, Math.PI * 2);
-      octx.fill();
-    }
-
-    ghostCacheCanvas = off;
-    ghostCacheReady = true;
-  }
-
-  // spawn ghost ripple at random position (or provide x,y)
-  function spawnGhost(x = null, y = null) {
-    if (!cfg.ghost.enabled) return null;
-    if (ghosts.length >= cfg.ghost.maxConcurrent) return null;
-
-    const cx = x === null ? (20 + Math.random() * (window.innerWidth - 40)) : x;
-    const cy = y === null ? (20 + Math.random() * (window.innerHeight - 40)) : y;
-
-    const g = {
-      cx,
-      cy,
-      radius: 0,
-      targetRadius: (20 + Math.random() * (cfg.ghost.maxRadius - 20)),
-      lifeStart: performance.now(),
-      lifeSpan: cfg.ghost.lifetime * (0.8 + Math.random() * 0.8),
-      driftX: (Math.random() - 0.5) * cfg.ghost.drift,
-      driftY: (Math.random() - 0.5) * cfg.ghost.drift,
-      rotation: Math.random() * Math.PI * 2,
-      createdAt: performance.now()
-    };
-    ghosts.push(g);
-    return g;
-  }
-
-  // pointer handling (click/hold)
+  // pointer handling
+  const MOVED_THRESH = 8;
   function onPointerMove(e) {
     const x = e.clientX ?? (e.touches && e.touches[0] && e.touches[0].clientX) ?? lastPointer.x;
     const y = e.clientY ?? (e.touches && e.touches[0] && e.touches[0].clientY) ?? lastPointer.y;
     const dx = x - lastPointer.x;
     const dy = y - lastPointer.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-
     if (pointerWasDown) pointerMoveDuringDown += dist;
-
     lastPointer.x = x;
     lastPointer.y = y;
     lastMoveTime = performance.now();
   }
-
-  let pointerMoveDuringDownLocal = 0;
-  function onPointerDown(e) {
+  function onPointerDown() {
     pointerWasDown = true;
-    pointerDownTime = performance.now();
     pointerMoveDuringDown = 0;
-    pointerMoveDuringDownLocal = 0;
   }
-  function onPointerUp(e) {
+  function onPointerUp() {
     pointerWasDown = false;
-    const moved = pointerMoveDuringDownLocal || pointerMoveDuringDown || 0;
+    const moved = pointerMoveDuringDown || 0;
     if (cfg.activation === 'click') {
-      if (moved <= 8) createSplash(lastPointer.x, lastPointer.y);
+      if (moved <= MOVED_THRESH) spawnSplash(lastPointer.x, lastPointer.y);
     }
-    pointerMoveDuringDownLocal = 0;
+    pointerMoveDuringDown = 0;
   }
-
   window.addEventListener('mousemove', onPointerMove, { passive: true });
   window.addEventListener('touchmove', onPointerMove, { passive: true });
   window.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('pointerup', onPointerUp);
 
-  // draw a splash (interactive) — costlier but capped
-  function drawSplashMask(s) {
-    if (s.radius < cfg.smallRadiusSkip) return;
-    if (s.radius > cfg.blurThreshold) ctx.filter = `blur(${Math.max(1, s.radius * 0.02)}px)`;
-    else ctx.filter = 'none';
-
-    ctx.globalCompositeOperation = 'destination-out';
-
-    const scale = Math.max(0.01, s.radius / Math.max(1, cfg.maxRadius));
-    for (let i = 0, L = s.layout.length; i < L; i++) {
-      const b = s.layout[i];
-      const br = Math.max(2, b.rr * scale * 1.2);
-      const bx = s.cx + b.ox * scale;
-      const by = s.cy + b.oy * scale;
-      const g = ctx.createRadialGradient(bx, by, br * 0.12, bx, by, br);
-      g.addColorStop(0, 'rgba(0,0,0,1)');
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(bx, by, br, 0, Math.PI * 2);
-      ctx.fill();
+  // choose top N splashes by current radius (cheap selection)
+  function pickTopN(array, N) {
+    if (array.length <= N) return array.slice();
+    const res = [];
+    for (let i = 0; i < array.length; i++) {
+      const s = array[i];
+      let j = 0;
+      while (j < res.length && res[j].radius >= s.radius) j++;
+      if (j < N) {
+        res.splice(j, 0, s);
+        if (res.length > N) res.pop();
+      }
     }
-
-    // capped noise holes
-    const noiseCount = Math.min(cfg.maxNoisePerSplash, Math.max(6, Math.round(s.radius * cfg.noiseFactor)));
-    for (let i = 0; i < noiseCount; i++) {
-      const ang = Math.random() * Math.PI * 2;
-      const rr = Math.random() * s.radius;
-      const nx = s.cx + Math.cos(ang) * rr * (0.6 + Math.random() * 0.8);
-      const ny = s.cy + Math.sin(ang) * rr * (0.6 + Math.random() * 0.8);
-      const nr = Math.random() * Math.max(0.6, s.radius * 0.02);
-      ctx.beginPath();
-      ctx.arc(nx, ny, nr, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    ctx.filter = 'none';
-    ctx.globalCompositeOperation = 'source-over';
+    return res;
   }
 
-  // draw a ghost by blitting the cached mask (fast)
-  function drawGhost(g) {
-    if (!ghostCacheReady) {
-      // fallback to drawing a cheap radial if cache missing
-      ctx.save();
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.beginPath();
-      ctx.arc(g.cx, g.cy, g.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(0,0,0,${cfg.ghost.alpha})`;
-      ctx.fill();
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.restore();
-      return;
-    }
-
-    // draw cached mask scaled to desired radius
-    const off = ghostCacheCanvas;
-    const size = off.width; // square cache
-    const drawSize = Math.max(4, (g.radius / (cfg.ghost.maxRadius || size)) * size * 2); // scale factor
-    const half = drawSize / 2;
-
-    ctx.save();
-    // set alpha for subtle reveal
-    ctx.globalAlpha = cfg.ghost.alpha;
-    ctx.globalCompositeOperation = 'destination-out';
-
-    // drawImage auto-smooths, so it's lightweight
-    ctx.translate(g.cx, g.cy);
-    ctx.rotate(g.rotation || 0);
-    ctx.drawImage(off, -half, -half, drawSize, drawSize);
-    ctx.rotate(-(g.rotation || 0));
-    ctx.translate(-g.cx, -g.cy);
-
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = 1;
-    ctx.restore();
-  }
-
-  // ghost spawn scheduler
-  let lastGhostSpawn = performance.now();
-  function maybeSpawnGhost(now) {
-    if (!cfg.ghost.enabled) return;
-    // spawn with Poisson-ish rate: probability per frame = ratePerSec * dt
-    const dt = Math.max(1, now - (maybeSpawnGhost._last || now));
-    maybeSpawnGhost._last = now;
-    const prob = (cfg.ghost.ratePerSec * dt) / 1000;
-    if (Math.random() < prob) {
-      spawnGhost();
-    }
-  }
+  // easing
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+  function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2; }
 
   // main loop
   let raf = null;
   function tick() {
     const now = performance.now();
-    maybeSpawnGhost(now);
 
-    // hold activation: create splash when idle
+    // hold activation
     if (cfg.activation === 'hold') {
       const idle = now - lastMoveTime;
       if (idle >= cfg.holdTime) {
         const recently = splashes.length > 0 && (now - splashes[splashes.length - 1].createdAt < 250);
-        if (!recently) createSplash(lastPointer.x, lastPointer.y);
+        if (!recently) spawnSplash(lastPointer.x, lastPointer.y);
         lastMoveTime = now + 80;
       }
     }
 
-    // update interactive splashes
-    for (let i = 0; i < splashes.length; i++) {
-      const s = splashes[i];
-      if (s.growing) {
-        s.targetRadius += (cfg.growthSpeed / 60);
-        if (s.targetRadius >= cfg.maxRadius) {
-          s.targetRadius = cfg.maxRadius;
-          s.growing = false;
-          if (cfg.permanentOnMax) s.permanent = true;
-        }
-      } else {
-        if (!s.permanent) {
-          s.targetRadius -= (cfg.growthSpeed / 60) * 1.6;
-          if (s.targetRadius < 0) s.targetRadius = 0;
-        }
-      }
-      s.radius += (s.targetRadius - s.radius) * 0.22;
-    }
-
-    // update ghosts
-    for (let i = ghosts.length - 1; i >= 0; i--) {
-      const g = ghosts[i];
-      const age = now - g.lifeStart;
-      const t = age / g.lifeSpan;
-      if (t >= 1) {
-        ghosts.splice(i, 1);
-        continue;
-      }
-      // ease radius growth and drift
-      g.radius = g.targetRadius * easeOutQuad(Math.min(1, (age / (g.lifeSpan * 0.7))));
-      // drift
-      g.cx += (g.driftX * (now - (g._last || g.lifeStart))) / 1000;
-      g.cy += (g.driftY * (now - (g._last || g.lifeStart))) / 1000;
-      g.rotation += 0.003 * ((age % 1000) / 1000);
-      g._last = now;
-    }
-
-    // cleanup fully-shrunk splashes
+    // update splashes (phase/time-based)
     for (let i = splashes.length - 1; i >= 0; i--) {
       const s = splashes[i];
-      if (!s.permanent && s.radius <= 0.5 && s.targetRadius <= 0.5) splashes.splice(i, 1);
+      const elapsed = Math.max(0, now - s.startTime);
+      const t = s.duration > 0 ? Math.min(1, elapsed / s.duration) : 1;
+
+      if (s.phase === 'growing') {
+        s.radius = s.endR * easeOutCubic(t);
+        if (t >= 1) {
+          s.phase = 'steady';
+          s.steadyStart = now;
+          s.radius = s.endR;
+          s.startTime = now;
+          s.duration = cfg.lifetime;
+        }
+      } else if (s.phase === 'steady') {
+        // hold at final radius until lifetime passes
+        if (now - s.steadyStart >= cfg.lifetime) {
+          s.phase = 'shrinking';
+          s.startTime = now;
+          s.startR = s.radius;
+          s.endR = 0;
+          s.duration = cfg.shrinkDuration;
+        }
+      } else if (s.phase === 'shrinking') {
+        const tt = s.duration > 0 ? Math.min(1, elapsed / s.duration) : 1;
+        s.radius = s.startR * (1 - easeOutCubic(tt));
+        if (tt >= 1) {
+          // remove
+          if (s.offcanvas) {
+            // dereference for GC
+            s.offcanvas = null;
+          }
+          splashes.splice(i, 1);
+        }
+      }
     }
 
-    // draw veil
+    // draw veil base
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
     ctx.save();
@@ -422,34 +377,44 @@ export function initInkReveal(options = {}) {
     ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
     ctx.restore();
 
-    // draw ghosts first
-    if (ghosts.length > 0) {
-      // draw up to ghost maxConcurrent
-      for (let i = 0; i < Math.min(cfg.ghost.maxConcurrent, ghosts.length); i++) {
-        drawGhost(ghosts[i]);
-      }
-    }
-
-    // draw interactive splashes (largest first) limited by maxConcurrentDraw
+    // draw top splashes (fast drawImage)
     if (splashes.length > 0) {
-      const copy = splashes.slice().sort((a, b) => b.radius - a.radius);
-      const toDraw = copy.slice(0, Math.max(1, Math.min(cfg.maxConcurrentDraw, copy.length)));
-      for (let i = 0; i < toDraw.length; i++) drawSplashMask(toDraw[i]);
+      const toDraw = pickTopN(splashes, Math.max(1, Math.min(cfg.maxConcurrentDraw, splashes.length)));
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      for (let i = 0; i < toDraw.length; i++) {
+        const s = toDraw[i];
+        if (!s.offcanvas) {
+          // fallback: simple circle (cheap)
+          ctx.beginPath();
+          ctx.arc(s.cx, s.cy, Math.max(1, s.radius), 0, Math.PI * 2);
+          ctx.fill();
+          continue;
+        }
+        const drawSize = Math.max(2, s.radius * 2);
+        const half = drawSize / 2;
+        try {
+          ctx.drawImage(s.offcanvas, s.cx - half, s.cy - half, drawSize, drawSize);
+        } catch (e) {
+          // fallback to circle
+          ctx.beginPath();
+          ctx.arc(s.cx, s.cy, Math.max(1, s.radius), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.restore();
     }
 
     raf = requestAnimationFrame(tick);
   }
 
-  // helpers
-  function easeOutQuad(t) { return t * (2 - t); }
-
   // start
-  if (cfg.ghost.useOffscreenCache) ensureGhostCache();
   resize();
   raf = requestAnimationFrame(tick);
   window.addEventListener('resize', resize);
 
-  // expose API
+  // API
   return {
     destroy() {
       if (raf) cancelAnimationFrame(raf);
@@ -462,33 +427,27 @@ export function initInkReveal(options = {}) {
       if (cEl && cEl.parentNode) cEl.parentNode.removeChild(cEl);
       const bEl = document.getElementById('ink-bg');
       if (bEl && bEl.parentNode) bEl.parentNode.removeChild(bEl);
-      ghostCacheCanvas = null;
-      ghostCacheReady = false;
+      splashes.length = 0;
     },
 
     resetAll() {
       splashes.length = 0;
-      ghosts.length = 0;
       drawFullVeil();
     },
 
-    removeLast() {
-      splashes.pop();
-    },
+    removeLast() { splashes.pop(); },
 
-    getSplashes() {
-      return splashes.slice();
-    },
+    getSplashes() { return splashes.slice(); },
 
-    // allow runtime tuning of optimization settings and ghost toggles
     setOptimization(opts = {}) {
-      Object.assign(cfg, opts);
-      if (opts.ghost) Object.assign(cfg.ghost, opts.ghost);
-      // re-create cache if cacheSize changed
-      if (opts.ghost && 'cacheSize' in opts.ghost) {
-        ghostCacheReady = false;
-        if (cfg.ghost.useOffscreenCache) ensureGhostCache();
-      }
-    }
+      Object.assign(cfg, opts || {});
+      cfg.pointCount = Math.max(8, Math.min(64, cfg.pointCount));
+      cfg.blobs = Math.max(0, cfg.blobs);
+      cfg.maxActiveSplashes = Math.max(1, Math.floor(cfg.maxActiveSplashes));
+      cfg.maxConcurrentDraw = Math.max(1, Math.floor(cfg.maxConcurrentDraw));
+    },
+
+    // spawn programmatically
+    spawnAt(x, y) { return spawnSplash(x, y); }
   };
 }
