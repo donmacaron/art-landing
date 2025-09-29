@@ -1,9 +1,11 @@
-# docker-compose.dev.yml
 version: "3.8"
 
 services:
   backend:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    image: eden-backend-dev:latest
     container_name: eden-backend-dev
     working_dir: /app
     volumes:
@@ -30,7 +32,8 @@ services:
     environment:
       - NODE_ENV=development
       - BACKEND_URL=http://backend:5000
-    command: [ "sh", "-c", "npm install --no-audit --no-fund && npm run dev -- --host" ]
+    # исправленная команда: явно даём --host 0.0.0.0
+    command: [ "sh", "-c", "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0" ]
     depends_on:
       - backend
     networks:
@@ -47,8 +50,6 @@ services:
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
       - traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true
       - traefik.http.middlewares.redirect-to-https.redirectscheme.port=443
-
-
 networks:
   eden-net:
     driver: bridge
