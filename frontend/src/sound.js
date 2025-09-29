@@ -9,9 +9,9 @@ export function initSound({ button = null, audioConfig = null } = {}) {
   }, audioConfig || {});
 
   let audioCtx = null;
-  let audioEl = null;
-  let sourceNode = null;
   let gainNode = null;
+  let buffer = null;
+  let sourceNode = null;
   let audioPlaying = false;
   let audioReady = false;
 
@@ -23,41 +23,56 @@ export function initSound({ button = null, audioConfig = null } = {}) {
     if (span) span.textContent = pressed ? 'Sound off' : 'Sound on';
   }
 
-  function createAudioChain() {
+  async function loadBuffer() {
     if (audioReady) return;
-    audioEl = document.createElement('audio');
-    audioEl.crossOrigin = 'anonymous';
-    audioEl.loop = true;
-    for (const s of cfg.sources) {
-      const src = document.createElement('source');
-      src.src = s;
-      audioEl.appendChild(src);
-    }
-    audioEl.style.display = 'none';
-    document.body.appendChild(audioEl);
-
     const AC = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AC();
-    sourceNode = audioCtx.createMediaElementSource(audioEl);
     gainNode = audioCtx.createGain();
     gainNode.gain.value = 0;
-    sourceNode.connect(gainNode);
     gainNode.connect(audioCtx.destination);
 
+    // try sources until one works
+    for (const url of cfg.sources) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const arrBuf = await res.arrayBuffer();
+        buffer = await audioCtx.decodeAudioData(arrBuf);
+        break;
+      } catch (err) {
+        console.warn(`Failed to load audio source ${url}:`, err);
+      }
+    }
+    if (!buffer) throw new Error('No valid audio sources loaded');
     audioReady = true;
+  }
+
+  function createSource() {
+    if (!buffer || !audioCtx) return null;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = true;
+    src.connect(gainNode);
+    return src;
   }
 
   async function startAmbient() {
     try {
-      if (!audioReady) createAudioChain();
+      if (!audioReady) await loadBuffer();
       if (audioCtx && audioCtx.state === 'suspended') {
         await audioCtx.resume();
       }
-      try { await audioEl.play(); } catch (e) { console.warn('audio play failed', e); }
+      if (sourceNode) {
+        try { sourceNode.stop(); } catch {}
+      }
+      sourceNode = createSource();
+      sourceNode.start(0);
+
       const now = audioCtx.currentTime;
       gainNode.gain.cancelScheduledValues(now);
       gainNode.gain.setValueAtTime(gainNode.gain.value, now);
       gainNode.gain.linearRampToValueAtTime(cfg.volume, now + cfg.fadeTime);
+
       audioPlaying = true;
       localStorage.setItem('soundOn', 'true');
       updateButtonUI();
@@ -67,30 +82,31 @@ export function initSound({ button = null, audioConfig = null } = {}) {
   }
 
   function stopAmbient() {
-    if (!audioReady) {
+    if (!audioReady || !gainNode) {
       audioPlaying = false;
       localStorage.setItem('soundOn', 'false');
       updateButtonUI();
       return;
     }
-    try {
-      const now = audioCtx.currentTime;
-      gainNode.gain.cancelScheduledValues(now);
-      gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + cfg.fadeTime);
+    const now = audioCtx.currentTime;
+    gainNode.gain.cancelScheduledValues(now);
+    gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+    gainNode.gain.linearRampToValueAtTime(0, now + cfg.fadeTime);
+    if (sourceNode) {
       setTimeout(() => {
-        try { audioEl.pause(); } catch (e) {}
-      }, Math.round(cfg.fadeTime * 1000 + 120));
-      audioPlaying = false;
-      localStorage.setItem('soundOn', 'false');
-      updateButtonUI();
-    } catch (err) { console.warn('stopAmbient error', err); }
+        try { sourceNode.stop(); } catch {}
+        sourceNode = null;
+      }, Math.round(cfg.fadeTime * 1000 + 100));
+    }
+    audioPlaying = false;
+    localStorage.setItem('soundOn', 'false');
+    updateButtonUI();
   }
 
   async function handleSoundToggle() {
-    if (!audioReady) createAudioChain();
+    if (!audioReady) await loadBuffer();
     if (audioCtx && audioCtx.state === 'suspended') {
-      try { await audioCtx.resume(); } catch (e) {}
+      try { await audioCtx.resume(); } catch {}
     }
     if (audioPlaying) stopAmbient();
     else await startAmbient();
@@ -98,13 +114,12 @@ export function initSound({ button = null, audioConfig = null } = {}) {
 
   // bind to provided button (if any)
   if (button) {
-    button.addEventListener('click', async (e) => {
+    button.addEventListener('click', async () => {
       await handleSoundToggle();
     });
     const saved = localStorage.getItem('soundOn');
     if (saved === 'true') {
-      createAudioChain();
-      updateButtonUI();
+      loadBuffer().then(() => updateButtonUI());
     } else {
       updateButtonUI();
     }
@@ -112,19 +127,16 @@ export function initSound({ button = null, audioConfig = null } = {}) {
 
   // duck on visibility change
   document.addEventListener('visibilitychange', () => {
-    if (!audioReady || !audioCtx) return;
+    if (!audioReady || !audioCtx || !gainNode) return;
+    const now = audioCtx.currentTime;
     if (document.hidden) {
-      const now = audioCtx.currentTime;
       gainNode.gain.cancelScheduledValues(now);
       gainNode.gain.setValueAtTime(gainNode.gain.value, now);
       gainNode.gain.linearRampToValueAtTime(0, now + 0.25);
-    } else {
-      if (localStorage.getItem('soundOn') === 'true') {
-        const now = audioCtx.currentTime;
-        gainNode.gain.cancelScheduledValues(now);
-        gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-        gainNode.gain.linearRampToValueAtTime(cfg.volume, now + 0.4);
-      }
+    } else if (localStorage.getItem('soundOn') === 'true') {
+      gainNode.gain.cancelScheduledValues(now);
+      gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+      gainNode.gain.linearRampToValueAtTime(cfg.volume, now + 0.4);
     }
   });
 
@@ -135,7 +147,8 @@ export function initSound({ button = null, audioConfig = null } = {}) {
     isPlaying: () => audioPlaying,
     destroy() {
       try {
-        if (audioEl && audioEl.parentNode) audioEl.parentNode.removeChild(audioEl);
+        if (sourceNode) sourceNode.stop();
+        if (audioCtx) audioCtx.close();
       } catch (e) {}
     }
   };
