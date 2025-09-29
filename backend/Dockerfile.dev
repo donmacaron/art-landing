@@ -5,10 +5,10 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
-# Установим небольшие системные зависимости (при необходимости)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-  && rm -rf /var/lib/apt/lists/*
+# # Установим небольшие системные зависимости (при необходимости)
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     build-essential \
+#   && rm -rf /var/lib/apt/lists/*
 
 # Скопируем requirements и установим их (быстрый rebuild при изменениях кода)
 COPY backend/requirements.txt /app/requirements.txt

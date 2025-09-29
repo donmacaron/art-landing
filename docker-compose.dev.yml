@@ -39,17 +39,17 @@ services:
     networks:
       - eden-net
 
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.eden1.rule=Host(`eden.donmacaron.net`)
-      - traefik.http.routers.eden1.entrypoints=webs
-      - traefik.http.routers.eden1.tls.certresolver=myresolver
-      - traefik.http.routers.eden2.rule=Host(`eden.donmacaron.net`)
-      - traefik.http.routers.eden2.entrypoints=web
-      - traefik.http.routers.eden2.middlewares=redirect-to-https     
-      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
-      - traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true
-      - traefik.http.middlewares.redirect-to-https.redirectscheme.port=443
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.eden1.rule=Host(`eden.donmacaron.net`)
+    #   - traefik.http.routers.eden1.entrypoints=webs
+    #   - traefik.http.routers.eden1.tls.certresolver=myresolver
+    #   - traefik.http.routers.eden2.rule=Host(`eden.donmacaron.net`)
+    #   - traefik.http.routers.eden2.entrypoints=web
+    #   - traefik.http.routers.eden2.middlewares=redirect-to-https     
+    #   - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+    #   - traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true
+    #   - traefik.http.middlewares.redirect-to-https.redirectscheme.port=443
 networks:
   eden-net:
     driver: bridge
