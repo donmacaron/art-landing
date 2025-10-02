@@ -20,6 +20,10 @@ export function initInkReveal(options = {}) {
     brushJitter: 0.12,
     smoothing: 0.5,
 
+    // cursor lag: how far (px) the brush falls behind the actual cursor (positive = behind)
+    // set to 0 for no lag.
+    cursorLag: 38,
+
     // width shaping
     widthNoise: 0.25,
     widthTaperTail: 0.65,
@@ -66,6 +70,8 @@ export function initInkReveal(options = {}) {
   cfg.maxStrokes         = Math.max(1, Math.floor(cfg.maxStrokes));
   cfg.strokeLifetime     = Math.max(0, cfg.strokeLifetime);
   cfg.strokeFade         = Math.max(0, cfg.strokeFade);
+
+  cfg.cursorLag          = Math.max(0, Number(cfg.cursorLag) || 0); // new param
 
   cfg.idleEnabled        = !!cfg.idleEnabled;
   cfg.idleTimeout        = Math.max(100, cfg.idleTimeout | 0);
@@ -169,6 +175,38 @@ export function initInkReveal(options = {}) {
     const noiseF = 1 + cfg.widthNoise * (p1.n || 0);
 
     return Math.max(1, base * tailF * headF * velF * noiseF * shrinkScale);
+  }
+
+  // ---- NEW helper: compute lagged point behind cursor ----
+  function computeLaggedPoint(curr, prevAdded, lagPx) {
+    // If no lag requested, return curr directly
+    if (!lagPx || lagPx <= 0) return { x: curr.x, y: curr.y };
+
+    const dx = curr.x - (prevAdded.x ?? curr.x);
+    const dy = curr.y - (prevAdded.y ?? curr.y);
+    const d = Math.hypot(dx, dy);
+
+    // If movement tiny, just return curr (avoids division by zero & jitter)
+    if (d < 1) return { x: curr.x, y: curr.y };
+
+    // unit vector of movement
+    const ux = dx / d;
+    const uy = dy / d;
+
+    // lagged point = cursor minus lag along movement direction
+    const px = curr.x - ux * lagPx;
+    const py = curr.y - uy * lagPx;
+
+    // If lag would place point behind previous added too far (big jump), clamp to prevent large teleporting:
+    const maxJump = Math.max(40, lagPx * 2); // tolerable jump threshold
+    const jumpDist = Math.hypot(px - prevAdded.x, py - prevAdded.y);
+    if (jumpDist > maxJump) {
+      // instead lerp from prevAdded towards px by factor that limits jump
+      const factor = maxJump / jumpDist;
+      return { x: lerp(prevAdded.x, px, factor), y: lerp(prevAdded.y, py, factor) };
+    }
+
+    return { x: px, y: py };
   }
 
   // ---- stroke creation / appending ----
@@ -418,9 +456,13 @@ export function initInkReveal(options = {}) {
     // user drawing
     if (t - lastSampleTime >= cfg.sampleInterval) {
       const p = lastPointer;
-      if (dist(p, lastAddedPos) >= cfg.minMove) {
-        appendToStroke(p.x, p.y);
-        lastAddedPos = { ...p };
+
+      // compute lagged position relative to lastAddedPos
+      const lagged = computeLaggedPoint(p, lastAddedPos, cfg.cursorLag);
+
+      if (dist(lagged, lastAddedPos) >= cfg.minMove) {
+        appendToStroke(lagged.x, lagged.y);
+        lastAddedPos = { ...lagged };
         lastSampleTime = t;
         lastMovementTime = t;
         if (idleGenerators.length) idleGenerators.length = 0;
@@ -523,6 +565,7 @@ export function initInkReveal(options = {}) {
     cfg.maxStrokes         = Math.max(1, Math.floor(cfg.maxStrokes));
     cfg.strokeLifetime     = Math.max(0, cfg.strokeLifetime);
     cfg.strokeFade         = Math.max(0, cfg.strokeFade);
+    cfg.cursorLag          = Math.max(0, Number(cfg.cursorLag) || 0);
   }
 
   function getStrokes() { return strokes.slice(); }
