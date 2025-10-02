@@ -5,10 +5,6 @@ import './style.css';
 import { initInkReveal } from './ink.js';
 import { initSound } from './sound.js';
 
-/* ===========================
-   CODE-LEVEL SWITCH
-   ===========================
-*/
 export const LOAD_3D = false; // 3D off for now
 
 /* ===========================
@@ -20,16 +16,26 @@ export const INK_CONFIG = {
   veilColor: '#E9E6E4',
   activation: 'click',    // 'hold' or 'click'
   holdTime: 600,
-  clickHoldMin: 80,
-  growthSpeed: 220,
+  // animation timing (ms)
+  growDuration: 1100,
+  lifetime: 2400,
+  shrinkDuration: 1600,
+  // size/shape
   maxRadius: 360,
-  feather: 0.55,
-  permanentOnMax: false,
-  multiple: false,
-  followWhileGrowing: false,
-  blobs: 10,
+  minRadius: 120,
+  pointCount: 20,
+  blobs: 2,
   jitter: 0.45,
-  noiseFactor: 0.6
+  edgeRoughness: 0.26,
+  noiseFactor: 0.36,
+  // performance / concurrency
+  maxActiveSplashes: 3,       // <=3 active veins
+  maxConcurrentDraw: 3,
+  maxNoisePerSplash: 20,
+  offscreenDPR: 1,            // offscreen canvas DPR (1 = cheaper)
+  smallRadiusSkip: 2.0,
+  // start behavior
+  autoStart: false
 };
 
 /* ========== params (shared with scene.js if loaded) ========== */
@@ -41,15 +47,16 @@ export const params = {
   cameraStart: { x: 0, y: 0, z: 5 },
   fogColor: '#E9E6E4',
   fogNear: 1,
-  fogFar: 12,
-  bgImage: INK_CONFIG.imageUrl
+  fogFar: 12
 };
 
 /* ========== UI refs ========== */
 const lottieContainerId = 'lottie-container';
 const preloaderTitle = document.getElementById('preloader-title');
-const topRight = document.getElementById('top-right');
+const topBar = document.getElementById('topbar');
+const bottomBar = document.getElementById('bottombar');
 const topLeft = document.getElementById('top-left');
+const topRight = document.getElementById('top-right');
 const soundBtn = document.getElementById('sound-btn');
 
 /* ========== Lottie preloader ========== */
@@ -61,9 +68,14 @@ const animation = lottie.loadAnimation({
   path: '/loader.json'
 });
 
+// create veil early (it will draw full veil immediately but not start splashes)
+const ink = initInkReveal(Object.assign({}, INK_CONFIG, { autoStart: false }));
+window.__ink = ink; // debug
+
 let animationCompleted = false;
 let sceneLoaded = false;
 let sceneModule = null;
+let preloaderFinalized = false;
 
 animation.addEventListener('complete', () => {
   animationCompleted = true;
@@ -76,6 +88,10 @@ animation.addEventListener('complete', () => {
 animation.addEventListener('DOMLoaded', () => { /* no-op */ });
 
 function finalizePreloader() {
+  if (preloaderFinalized) return;
+  preloaderFinalized = true;
+
+  // stop Lottie on last frame
   try {
     const total = animation.totalFrames || Math.round((animation.getDuration ? animation.getDuration(true) : 1) * 60) || 1;
     if (typeof animation.goToAndStop === 'function') {
@@ -87,13 +103,31 @@ function finalizePreloader() {
     console.warn('Could not stop lottie on last frame:', e);
   }
 
-  topLeft?.classList.add('visible');
-  topRight?.classList.add('visible');
+  // start ink interactions/animations only once preloader is done
+  try {
+    if (ink && typeof ink.start === 'function') {
+      ink.start();
+    }
+  } catch (e) {
+    console.warn('ink.start() failed:', e);
+  }
+
+  // reveal UI bars and corner items with small staggers
+  if (topBar) topBar.classList.add('visible');
+
+  setTimeout(() => {
+    topLeft?.classList.add('visible');
+    topRight?.classList.add('visible');
+  }, 60);
 
   if (preloaderTitle) {
     preloaderTitle.textContent = 'PRIVATE RESIDENCE';
     preloaderTitle.classList.add('visible');
   }
+
+  setTimeout(() => {
+    if (bottomBar) bottomBar.classList.add('visible');
+  }, 220);
 }
 
 /* ========== Scene loader guard (unchanged) ========== */
@@ -115,86 +149,9 @@ async function startSceneIfNeeded() {
 }
 startSceneIfNeeded();
 
-/* ===========================
-   Helpers: persistent settings
-   ===========================
-*/
-const GHOST_STORAGE_KEY = 'ghostEnabled';
-
-// read persisted ghost setting (fall back to false)
-function readGhostPref() {
-  try {
-    return localStorage.getItem(GHOST_STORAGE_KEY) === 'true';
-  } catch (e) {
-    return false;
-  }
-}
-function writeGhostPref(val) {
-  try {
-    localStorage.setItem(GHOST_STORAGE_KEY, val ? 'true' : 'false');
-  } catch (e) { /* ignore */ }
-}
-
-/* ===========================
-   Initialize ink reveal and sound
-   ===========================
-*/
-const initialGhostEnabled = readGhostPref(); // don't load ghost.js unless true
-
-// pass ghost flag into initInkReveal via options (ink module will lazy-load ghost.js only when enabled)
-const inkOptions = Object.assign({}, INK_CONFIG, { ghost: { enabled: initialGhostEnabled } });
-
-const ink = initInkReveal(inkOptions);
-window.__ink = ink; // debug
-
 // initialize sound system and bind to button (if present)
-const sound = initSound({ button: soundBtn }); // your sound.js should expose initSound
+const sound = initSound({ button: soundBtn });
 window.__sound = sound;
 
-/* ===========================
-   Ghost toggle UI wiring (optional)
-   - supports checkbox#ghost-toggle (preferred) or button#ghost-btn
-   ===========================
-*/
-function setupGhostUI() {
-  // checkbox control (preferred)
-  const chk = document.getElementById('ghost-toggle');
-  if (chk && (chk.type === 'checkbox' || chk.getAttribute('role') === 'switch')) {
-    chk.checked = initialGhostEnabled;
-    chk.addEventListener('change', async (e) => {
-      const on = Boolean(e.target.checked);
-      writeGhostPref(on);
-      await ink.setGhostEnabled(on); // lazy-loads ghost.js on demand
-    }, { passive: true });
-    return;
-  }
-
-  // fallback: toggle button
-  const btn = document.getElementById('ghost-btn');
-  if (btn) {
-    const reflect = (on) => {
-      btn.setAttribute('aria-pressed', String(Boolean(on)));
-      btn.classList.toggle('on', Boolean(on));
-    };
-    reflect(initialGhostEnabled);
-    btn.addEventListener('click', async () => {
-      const current = readGhostPref();
-      const next = !current;
-      writeGhostPref(next);
-      reflect(next);
-      await ink.setGhostEnabled(next);
-    });
-  }
-}
-setupGhostUI();
-
-/* ===========================
-   Optional: expose small control helpers to console
-   ===========================
-*/
-window.__toggleGhosts = async (on) => {
-  await ink.setGhostEnabled(Boolean(on));
-  writeGhostPref(Boolean(on));
-};
-
-/* done */
+/* expose for debug */
+export { ink, sound };

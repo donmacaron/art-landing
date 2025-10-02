@@ -1,85 +1,122 @@
+/* src/style.css
+   UI, preloader, and top/bottom bar styles.
+*/
+
 /* Fonts */
 @font-face {
-  font-family: 'UIFont';
-  src: url('/fonts/font1.woff2') format('woff2'),
-       url('/fonts/font1.woff') format('woff'),
-       url('/fonts/font1.ttf') format('truetype'); /* optional fallback */
-  /* font-weight: 400; */
+  font-family: "UIFont";
+  src: url("/fonts/font1.woff2") format("woff2"),
+       url("/fonts/font1.woff") format("woff"),
+       url("/fonts/font1.ttf") format("truetype");
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: 'TextFont';
-  src: url('/fonts/font2.woff2') format('woff2'),
-       url('/fonts/font2.woff') format('woff'),
-       url('/fonts/font2.ttf') format('truetype'); /* optional fallback */
-  /* font-weight: 400; */
+  font-family: "TextFont";
+  src: url("/fonts/font2.woff2") format("woff2"),
+       url("/fonts/font2.woff") format("woff"),
+       url("/fonts/font2.ttf") format("truetype");
   font-style: normal;
   font-display: swap;
 }
 
+/* UI tuning variables */
+:root{
+  --side-offset: 25px;
+  --vertical-offset: 32px;
+  --tel-font-size: 1.3rem;
+  --social-btn-w: 64px;
+  --social-btn-h: 56px;
+  --social-icon-size: 36px;
+  --social-text-size: 0.9rem;
+  --veil-color: #E9E6E4;
+  --accent-color: #8E887E;
+}
 
-
-/* base */
+/* Base layout */
 html, body {
   margin: 0;
   height: 100%;
-  overflow: hidden; /* no scroll */
-  background: #E9E6E4; /* page background */
+  overflow: hidden;
+  background: var(--veil-color);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 }
-
 body {
-  margin: 0;
   padding: 0;
-  background: url('/bg_plants.png');
-  background-repeat: no-repeat;
-  background-position: center center; /* Centers horizontally and vertically */
-  background-size: cover; /* Ensures the image covers the entire element while maintaining aspect ratio */
+  background: none; /* background image is owned by #ink-bg */
 }
 
-/* canvas full screen */
+/* full-screen canvas default */
 canvas { display:block; width:100vw; height:100vh; }
 
-/* overlay container */
-#ui-overlay {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 60;
-}
+/* overlay stacking */
+#ui-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
 
-
-/* background image container (behind page content) */
+/* background image container (behind content) */
 #ink-bg {
   position: fixed;
   inset: 0;
-  z-index: 0; /* behind UI (UI overlay uses z-index 60) */
+  z-index: 0;
   background-position: center center;
-  background-size: auto;
+  background-size: cover;
   background-repeat: no-repeat;
-  /* will-change: transform, opacity; */
+  pointer-events: none;
 }
 
-/* veil canvas that hides the background and will receive punched holes */
+/* veil canvas (punch-through reveals #ink-bg) */
 #ink-veil {
   position: fixed;
   inset: 0;
-  z-index: 30; /* below preloader UI (which must be >30), above most page content */
-  pointer-events: none; /* allow pointer events to pass through; we listen on window */
+  z-index: 30;
+  pointer-events: none;
 }
 
-/* ensure preloader overlay sits above veil (your existing overlay had z-index:60) */
-/* If needed, ensure #ui-overlay { z-index: 60; } */
+/* Top & bottom gradient bars */
+#topbar, #bottombar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 420ms ease, transform 420ms ease;
+  pointer-events: none;
+  z-index: 70;
+}
+#topbar .bar-inner, #bottombar .bar-inner {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 25px;
+  box-sizing: border-box;
+  position: relative;
+}
+#topbar {
+  top: 0;
+  background: linear-gradient(to bottom,
+    rgba(233,230,228,0.98) 0%,
+    rgba(233,230,228,0.6) 35%,
+    rgba(233,230,228,0) 100%);
+}
+#bottombar {
+  bottom: 0;
+  background: linear-gradient(to top,
+    rgba(233,230,228,0.98) 0%,
+    rgba(233,230,228,0.6) 35%,
+    rgba(233,230,228,0) 100%);
+}
+#topbar.visible, #bottombar.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
 
-
-
-
-/* LEFT TOP logo */
+/* Top-left logo */
 #top-left {
-  position: absolute;
-  left: 25px;
-  top: 32px;
+  position: fixed;
+  left: var(--side-offset);
+  top: var(--vertical-offset);
   pointer-events: auto;
   opacity: 0;
   transform: translateY(-6px);
@@ -88,7 +125,7 @@ canvas { display:block; width:100vw; height:100vh; }
 #top-left.visible { opacity: 1; transform: translateY(0); }
 #logo-left { width: 200px; height: auto; display: block; }
 
-/* center preloader */
+/* Preloader center */
 #preloader {
   position: absolute;
   left: 50%;
@@ -102,30 +139,24 @@ canvas { display:block; width:100vw; height:100vh; }
   text-align: center;
 }
 #lottie-container { width: 220px; height: 220px; pointer-events: none; }
-
-/* preloader title (will use TextFont) */
 #preloader-title {
-  color: #8E887E;
+  color: var(--accent-color);
   font-size: 25px;
-  letter-spacing: 2px;
   margin-top: 8px;
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 400ms ease, transform 400ms ease;
   pointer-events: none;
-  font-family: 'UIFont', serif;
+  font-family: "UIFont", serif;
   letter-spacing: 10px;
 }
+#preloader-title.visible { opacity: 1; transform: translateY(0); }
 
-#preloader-title.visible {
-  opacity: 1;
-}
-
-/* RIGHT TOP sound button */
+/* Top-right sound button */
 #top-right {
-  position: absolute;
-  right: 25px;
-  top: 32px;
+  position: fixed;
+  right: var(--side-offset);
+  top: var(--vertical-offset);
   pointer-events: auto;
   opacity: 0;
   transform: translateY(-6px);
@@ -133,28 +164,147 @@ canvas { display:block; width:100vw; height:100vh; }
 }
 #top-right.visible { opacity: 1; transform: translateY(0); }
 
-
 #sound-btn {
-  font-family: 'UIFont', sans-serif;
+  font-family: "UIFont", sans-serif;
   font-size: 1rem;
   padding: 5px 24px;
-  background: #E9E6E4;
-  border: 1px solid #8E887E;
-  color: #8E887E;
-  display: flex;              /* puts text + icon on one line */
-  align-items: center;        /* vertically centers both */
-  justify-content: center;    /* keeps them centered in button */
-  gap: 8px;                   /* space between text & icon */
-  border-radius: 999px;       /* pill shape */
+  background: var(--veil-color);
+  border: 1px solid var(--accent-color);
+  color: var(--accent-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
   cursor: pointer;
   width: 150px;
+  pointer-events: auto;
 }
-#sound-btn .icon { width: 16px; height: 16px; display:block; }
+#sound-btn .icon { width: 16px; height: 16px; display: block; }
 
-/* small responsive tweaks */
+/* Bottom-left phone */
+#bottom-left {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  position: fixed;
+  left: var(--side-offset);
+  bottom: var(--vertical-offset);
+  height: var(--social-btn-h);
+  gap: 8px;
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 420ms ease, transform 420ms ease;
+}
+.tel {
+  font-family: "UIFont", sans-serif;
+  color: var(--accent-color);
+  text-decoration: none;
+  font-size: var(--tel-font-size);
+  letter-spacing: 0.4px;
+  transition: text-decoration 160ms ease, opacity 160ms ease, transform 160ms ease;
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 8px;
+}
+.tel:hover, .tel:focus { text-decoration: underline; outline: none; }
+
+/* Bottom-right socials (icons -> text on hover) */
+#bottom-right {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: fixed;
+  right: var(--side-offset);
+  bottom: var(--vertical-offset);
+  height: var(--social-btn-h);
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 420ms ease, transform 420ms ease;
+}
+.social-btn {
+  position: relative;
+  width: var(--social-btn-w);
+  height: var(--social-btn-h);
+  min-width: var(--social-btn-w);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent-color);
+  text-decoration: none;
+  cursor: pointer;
+  pointer-events: auto;
+  overflow: visible;
+  border: none;
+  -webkit-tap-highlight-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.social-icon, .social-text {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-block;
+  line-height: 1;
+  pointer-events: none;
+}
+.social-icon {
+  width: var(--social-icon-size);
+  height: var(--social-icon-size);
+  transition: opacity 200ms ease, transform 200ms ease;
+  opacity: 1;
+}
+.social-text {
+  opacity: 0;
+  transform: translate(-50%, -50%) translateY(6px);
+  transition: opacity 200ms ease, transform 200ms ease;
+  font-family: "UIFont", sans-serif;
+  font-size: var(--social-text-size);
+  color: var(--accent-color);
+  white-space: nowrap;
+  text-align: center;
+  width: 100%;
+}
+.social-btn:hover .social-icon,
+.social-btn:focus .social-icon { opacity: 0; transform: translate(-50%, -50%) translateY(-6px); }
+.social-btn:hover .social-text,
+.social-btn:focus .social-text { opacity: 1; transform: translate(-50%, -50%) translateY(0); }
+.social-btn:focus { outline: 2px solid rgba(142,136,126,0.14); outline-offset: 2px; border-radius: 10px; }
+
+/* Corner item visibility toggles (animated entrance) */
+#top-left, #top-right, #bottom-left, #bottom-right {
+  transition: opacity 420ms ease, transform 420ms ease;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+#topbar.visible #top-left,
+#topbar.visible #top-right,
+#bottombar.visible #bottom-left,
+#bottombar.visible #bottom-right {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Responsive */
 @media (max-width: 640px) {
   #lottie-container { width: 160px; height: 160px; }
   #logo-left { width: 68px; }
-  #sound-btn { padding: 6px 10px; font-size: 12px; }
+  #sound-btn { padding: 6px 10px; font-size: 12px; width: auto; }
+  :root{
+    --tel-font-size: 1.05rem;
+    --social-btn-w: 56px;
+    --social-btn-h: 48px;
+    --social-icon-size: 28px;
+    --social-text-size: 0.85rem;
+    --vertical-offset: 24px;
+  }
+  #bottom-right { gap: 6px; }
 }
-

@@ -1,3 +1,4 @@
+# docker-compose.dev.yml
 version: "3.8"
 
 services:
@@ -6,11 +7,9 @@ services:
       context: .
       dockerfile: backend/Dockerfile.dev
     image: eden-backend-dev:latest
-    container_name: eden-backend-dev
     working_dir: /app
     volumes:
       - ./backend:/app:delegated
-      - /app/__pycache__
     ports:
       - "5000:5000"
     environment:
@@ -22,34 +21,24 @@ services:
 
   frontend:
     image: node:20
-    container_name: eden-frontend-dev
     working_dir: /app
     volumes:
       - ./frontend:/app:delegated
-      - /app/node_modules
+      - frontend_node_modules:/app/node_modules
     ports:
       - "5173:5173"
     environment:
       - NODE_ENV=development
       - BACKEND_URL=http://backend:5000
-    # исправленная команда: явно даём --host 0.0.0.0
-    command: [ "sh", "-c", "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0" ]
+    command: [ "sh", "-c", "npm ci --no-audit --no-fund && npm run dev -- --host 0.0.0.0" ]
     depends_on:
       - backend
     networks:
       - eden-net
 
-    # labels:
-    #   - traefik.enable=true
-    #   - traefik.http.routers.eden1.rule=Host(`eden.donmacaron.net`)
-    #   - traefik.http.routers.eden1.entrypoints=webs
-    #   - traefik.http.routers.eden1.tls.certresolver=myresolver
-    #   - traefik.http.routers.eden2.rule=Host(`eden.donmacaron.net`)
-    #   - traefik.http.routers.eden2.entrypoints=web
-    #   - traefik.http.routers.eden2.middlewares=redirect-to-https     
-    #   - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
-    #   - traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true
-    #   - traefik.http.middlewares.redirect-to-https.redirectscheme.port=443
 networks:
   eden-net:
     driver: bridge
+
+volumes:
+  frontend_node_modules:

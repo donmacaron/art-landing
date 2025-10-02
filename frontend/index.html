@@ -7,30 +7,54 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <!-- Three.js canvas will be appended by script -->
-
     <div id="ui-overlay">
-      <!-- left-top persistent logo -->
-      <div id="top-left">
-        <img id="logo-left" src="/left-logo.svg" alt="Left Logo" />
+      <!-- TOP BAR (gradient -> transparent downward) -->
+      <div id="topbar" role="banner" aria-hidden="false">
+        <div class="bar-inner">
+          <!-- left: EDEN logo -->
+          <div id="top-left" class="bar-item">
+            <img id="logo-left" src="/left-logo.svg" alt="Eden logo" />
+          </div>
+
+          <!-- right: sound button (keeps your existing #sound-btn) -->
+          <div id="top-right" class="bar-item">
+            <button id="sound-btn" aria-pressed="false">
+              <span>Sound on</span>
+              <img class="icon" src="/sound-icon.svg" alt="" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <!-- central preloader (Lottie) -->
+      <!-- center preloader (unchanged, still over the veil) -->
       <div id="preloader">
         <div id="lottie-container" aria-hidden="true"></div>
         <div id="preloader-title" aria-hidden="true">PRIVATE RESIDENCE</div>
       </div>
-
-      <!-- right-top persistent items -->
-      <div id="top-right">
-        <button id="sound-btn" aria-pressed="false">
-          <span>Sound on</span>
-          <img class="icon" src="/sound-icon.svg" alt="" />
-          
-        </button>
-      </div>
     </div>
 
+    <!-- BOTTOM BAR (gradient from bottom -> transparent upward) -->
+    <div id="bottombar" role="contentinfo" aria-hidden="false">
+      <div class="bar-inner">
+        <!-- left: telephone -->
+        <div id="bottom-left" class="bar-item">
+          <a href="tel:+1234567890" class="tel" id="tel-link">+1 234 567 890</a>
+        </div>
+
+        <!-- right: social icons that fade to text on hover -->
+        <div id="bottom-right" class="bar-item">
+          <a href="https://wa.me/1234567890" class="social-btn" id="wa-btn" aria-label="WhatsApp">
+            <img src="/whatsapp.svg" alt="WhatsApp icon" class="social-icon" />
+            <span class="social-text">WhatsApp</span>
+          </a>
+
+          <a href="https://t.me/username" class="social-btn" id="tg-btn" aria-label="Telegram">
+            <img src="/telegram.svg" alt="Telegram icon" class="social-icon" />
+            <span class="social-text">Telegram</span>
+          </a>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
