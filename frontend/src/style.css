@@ -4,11 +4,13 @@
   --vertical-offset: 32px;
   --tel-font-size: 1.3rem;
   --social-btn-w: 64px;
-  --social-btn-h: 56px;
+  --social-btn-h: 36px;
   --social-icon-size: 36px;
   --social-text-size: 0.9rem;
   --veil-color: #E9E6E4;
   --accent-color: #8E887E;
+  --transition-fast: 180ms;
+  --transition-med: 400ms;
 }
 
 /*────────── Font Faces ──────────*/
@@ -144,7 +146,7 @@ canvas {
   width: 150px;
 }
 
-/* bottom-left tel */
+/* bottom-left tel area */
 #bottom-left {
   left: var(--side-offset);
   bottom: var(--vertical-offset);
@@ -152,62 +154,102 @@ canvas {
   align-items: center;
   gap: 8px;
 }
-.tel-btn {
-  font-family: "UIFont", sans-serif;
-  font-size: var(--tel-font-size);
-  color: var(--accent-color);
-  text-decoration: none;
-  transition: text-decoration 160ms ease;
+
+/* tel-panel: collapsed shows only icon; when .open shows action buttons */
+.tel-panel {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  /* collapsed width keeps only the icon visible */
+  width: 56px;
+  height: var(--social-btn-h);
+  transition: width var(--transition-med) ease, height var(--transition-med) ease;
+  box-sizing: border-box;
+  pointer-events: auto;
 }
-.tel-btn:hover, .tel-btn:focus {
-  text-decoration: underline;
+
+/* toggle button (icon) */
+.tel-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: transform var(--transition-fast) ease;
+}
+.tel-toggle:active { transform: scale(0.96); }
+.tel-icon { width: 28px; height: 28px; display:block; }
+
+/* actions container (hidden when collapsed) */
+.tel-actions {
+  position: absolute;
+  left: 64px; /* space to the right of icon */
+  top: 0;
+  display: flex;
+  gap: 0; /* no gap */
+  align-items: stretch;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(6px);
+  transition: opacity var(--transition-med) ease, transform var(--transition-med) ease;
+}
+
+/* each action auto-sizes by content */
+.tel-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px; /* keep some breathing space */
+  border-radius: 0;
+  text-decoration: none;
+  height: var(--social-btn-h);
+  background: transparent;
+  border: solid 0.5px;
+  color: var(--accent-color);
+  font-family: "UIFont", sans-serif;
+  font-size: 0.95rem;
+  transition: background var(--transition-fast) ease, color var(--transition-fast) ease;
+  box-sizing: border-box;
+  white-space: nowrap; /* prevent wrapping */
+  width: auto; /* NEW: size depends on text */
+}
+
+/* separator line */
+.tel-action + .tel-action {
+  border-left: 1px solid rgba(0,0,0,0.06);
+}
+
+/* hover */
+.tel-action:hover,
+.tel-action:focus {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #fff;
   outline: none;
 }
 
-/* bottom-right socials */
+/* open state */
+.tel-panel.open {
+  width: auto;
+}
+.tel-panel.open .tel-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* bottom-right (now empty but keep spacing) */
 #bottom-right {
   right: var(--side-offset);
   bottom: var(--vertical-offset);
   display: flex;
   align-items: center;
   gap: 6px;
-}
-.social-btn {
-  position: relative;
-  width: var(--social-btn-w);
-  height: var(--social-btn-h);
-  border-radius: 999px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.social-icon, .social-text {
-  position: absolute;
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  transition: opacity 200ms ease, transform 200ms ease;
-}
-.social-icon { opacity: 1; width: var(--social-icon-size); height: var(--social-icon-size); }
-.social-text {
-  opacity: 0;
-  font-family: "UIFont", sans-serif;
-  font-size: var(--social-text-size);
-  color: var(--accent-color);
-  white-space: nowrap;
-}
-.social-btn:hover .social-icon,
-.social-btn:focus .social-icon {
-  opacity: 0;
-  transform: translate(-50%, -50%) translateY(-6px);
-}
-.social-btn:hover .social-text,
-.social-btn:focus .social-text {
-  opacity: 1;
-  transform: translate(-50%, -50%) translateY(0);
 }
 
 /* PRELOADER */
@@ -228,13 +270,11 @@ canvas {
 /* wrapper shrinks to SVG’s natural width */
 .preloader-brand {
   display: inline-block;
-  /* width: max-content; */
   text-align: center;
 }
 
 #lottie-container {
   width: 220px;
-  /* height: 160px; */
   pointer-events: none;
 }
 
@@ -246,7 +286,7 @@ canvas {
   max-width: 360px;
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 400ms ease, transform 400ms ease;
+  transition: opacity var(--transition-med) ease, transform var(--transition-med) ease;
 }
 #eden-logo.visible {
   opacity: 1;
@@ -269,7 +309,7 @@ canvas {
   overflow: hidden;
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 400ms ease, transform 400ms ease;
+  transition: opacity var(--transition-med) ease, transform var(--transition-med) ease;
 }
 #preloader-title.visible {
   opacity: 1;
@@ -298,5 +338,13 @@ canvas {
 
   .preloader-brand { max-width: 80vw; }
   #eden-logo { max-width: 100%; }
-}
 
+  /* make tel actions stack on small screens */
+  .tel-action {
+    min-width: 90px;
+    height: 42px;   /* shorter on small screens */
+    font-size: 0.85rem;
+    padding: 8px 10px;
+  }
+  .tel-action { min-width: 90px; padding: 8px 10px; }
+}

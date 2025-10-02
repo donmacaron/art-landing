@@ -48,8 +48,8 @@ export function initInkReveal(options = {}) {
     idleStaggerMax: 720,
     idleBrushWidthMin: 140,
     idleBrushWidthMax: 840,
-    idleSeedGrowMin: 1440,     // ms seed growth (how quickly the dot grows)
-    idleSeedGrowMax: 1920,
+    idleSeedGrowMin: 3440,     // ms seed growth (how quickly the dot grows)
+    idleSeedGrowMax: 5920,
     idleAvoidRadius: 140,
     idleMinSeedDistance: 1020,
     idleShrinkDuration: 4400, // ms to smoothly shrink after painting completes

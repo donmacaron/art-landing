@@ -2,10 +2,17 @@
 # ----------------------
 # Frontend build stage
 # ----------------------
+# frontend build stage
 FROM node:20-alpine AS frontend-build
 WORKDIR /app
-COPY frontend/package*.json ./ 
-RUN npm ci --silent
+COPY frontend/package*.json ./
+
+# Try strict install first; if it fails, fall back to npm install
+RUN if [ -f package-lock.json ]; then \
+      npm ci --silent --no-audit --no-fund || npm install --silent --no-audit --no-fund; \
+    else \
+      npm install --silent --no-audit --no-fund; \
+    fi
 COPY frontend/ ./
 RUN npm run build
 
@@ -28,7 +35,7 @@ COPY backend/ /app
 
 # Copy frontend build into Flask static folder (backend expects dist in ../frontend/dist)
 # We place dist into ./static so Flask serves it (your app.py uses ../frontend/dist)
-# Adjust path expected by your app if needed — here we put dist at /app/static
+# Adjust path expected by your app if needed вЂ” here we put dist at /app/static
 COPY --from=frontend-build /app/dist ./static
 
 # Expose port
