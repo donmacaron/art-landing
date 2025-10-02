@@ -53,6 +53,7 @@ export const params = {
 /* ========== UI refs ========== */
 const lottieContainerId = 'lottie-container';
 const preloaderTitle = document.getElementById('preloader-title');
+const edenLogo = document.getElementById('eden-logo');
 const topBar = document.getElementById('topbar');
 const bottomBar = document.getElementById('bottombar');
 const topLeft = document.getElementById('top-left');
@@ -91,7 +92,7 @@ function finalizePreloader() {
   if (preloaderFinalized) return;
   preloaderFinalized = true;
 
-  // stop Lottie on last frame
+  // stop lottie on last frame (best-effort)
   try {
     const total = animation.totalFrames || Math.round((animation.getDuration ? animation.getDuration(true) : 1) * 60) || 1;
     if (typeof animation.goToAndStop === 'function') {
@@ -112,19 +113,53 @@ function finalizePreloader() {
     console.warn('ink.start() failed:', e);
   }
 
-  // reveal UI bars and corner items with small staggers
+  // reveal top bar
   if (topBar) topBar.classList.add('visible');
 
+  // small stagger for corner items
   setTimeout(() => {
     topLeft?.classList.add('visible');
     topRight?.classList.add('visible');
   }, 60);
 
-  if (preloaderTitle) {
-    preloaderTitle.textContent = 'PRIVATE RESIDENCE';
-    preloaderTitle.classList.add('visible');
+  // Show preloader title and eden logo — make title width match eden logo width.
+  function revealBrand() {
+    if (!preloaderTitle) return;
+
+    if (edenLogo) {
+      // measure element width (rendered). If not loaded yet, wait for load event.
+      const apply = () => {
+        // measure bounding width (CSS pixels)
+        const rect = edenLogo.getBoundingClientRect();
+        // ensure at least some width
+        const w = Math.max(32, Math.round(rect.width || edenLogo.naturalWidth || 200));
+        preloaderTitle.style.width = w + 'px';
+        preloaderTitle.classList.add('visible');
+        edenLogo.classList.add('visible');
+      };
+
+      if (edenLogo.complete && (edenLogo.naturalWidth || edenLogo.width)) {
+        apply();
+      } else {
+        // if image not loaded, wait for it but also guard with a timeout fallback
+        let applied = false;
+        const onload = () => { if (!applied) { applied = true; apply(); } };
+        edenLogo.addEventListener('load', onload, { once: true });
+
+        // fallback in case load doesn't fire quickly (e.g. caching oddities)
+        setTimeout(() => {
+          if (!applied) { applied = true; apply(); }
+        }, 300);
+      }
+    } else {
+      // no eden logo present — just show title normally
+      preloaderTitle.classList.add('visible');
+    }
   }
 
+  revealBrand();
+
+  // show bottom bar after a small delay so entrance feels natural
   setTimeout(() => {
     if (bottomBar) bottomBar.classList.add('visible');
   }, 220);

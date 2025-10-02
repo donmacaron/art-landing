@@ -1,0 +1,494 @@
+/* src/style.css
+   UI, preloader, and top/bottom bar styles.
+*/
+
+/* Fonts */
+@font-face {
+  font-family: "UIFont";
+  src: url("/fonts/font1.woff2") format("woff2"),
+       url("/fonts/font1.woff") format("woff"),
+       url("/fonts/font1.ttf") format("truetype");
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "TextFont";
+  src: url("/fonts/font2.woff2") format("woff2"),
+       url("/fonts/font2.woff") format("woff"),
+       url("/fonts/font2.ttf") format("truetype");
+  font-style: normal;
+  font-display: swap;
+}
+
+/* UI tuning variables */
+:root{
+  --side-offset: 25px;
+  --vertical-offset: 32px;
+  --tel-font-size: 1.3rem;
+  --social-btn-w: 64px;
+  --social-btn-h: 56px;
+  --social-icon-size: 36px;
+  --social-text-size: 0.9rem;
+  --veil-color: #E9E6E4;
+  --accent-color: #8E887E;
+}
+
+/* Base layout */
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--veil-color);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+body {
+  padding: 0;
+  background: none; /* background image is owned by #ink-bg */
+}
+
+/* full-screen canvas default */
+canvas { display:block; width:100vw; height:100vh; }
+
+/* overlay stacking */
+#ui-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+
+/* background image container (behind content) */
+#ink-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* veil canvas (punch-through reveals #ink-bg) */
+#ink-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+
+/* Top & bottom gradient bars */
+#topbar, #bottombar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 420ms ease, transform 420ms ease;
+  pointer-events: none;
+  z-index: 70;
+}
+#topbar .bar-inner, #bottombar .bar-inner {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 25px;
+  box-sizing: border-box;
+  position: relative;
+}
+#topbar {
+  top: 0;
+  background: linear-gradient(to bottom,
+    rgba(233,230,228,0.98) 0%,
+    rgba(233,230,228,0.6) 35%,
+    rgba(233,230,228,0) 100%);
+}
+#bottombar {
+  bottom: 0;
+  background: linear-gradient(to top,
+    rgba(233,230,228,0.98) 0%,
+    rgba(233,230,228,0.6) 35%,
+    rgba(233,230,228,0) 100%);
+}
+#topbar.visible, #bottombar.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Top-left logo */
+#top-left {
+  position: fixed;
+  left: var(--side-offset);
+  top: var(--vertical-offset);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 600ms ease, transform 600ms ease;
+}
+#top-left.visible { opacity: 1; transform: translateY(0); }
+#logo-left { width: 130px; height: auto; display: block; }
+
+/* Preloader center */
+#preloader {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+#lottie-container { width: 220px; height: 220px; pointer-events: none; }
+#preloader-title {
+  color: var(--accent-color);
+  font-size: 25px;
+  margin-top: 8px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 400ms ease, transform 400ms ease;
+  pointer-events: none;
+  font-family: "UIFont", serif;
+  letter-spacing: 10px;
+}
+#preloader-title.visible { opacity: 1; transform: translateY(0); }
+
+/* Top-right sound button */
+#top-right {
+  position: fixed;
+  right: var(--side-offset);
+  top: var(--vertical-offset);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 600ms ease, transform 600ms ease;
+}
+#top-right.visible { opacity: 1; transform: translateY(0); }
+
+#sound-btn {
+  font-family: "UIFont", sans-serif;
+  font-size: 1rem;
+  padding: 5px 24px;
+  background: var(--veil-color);
+  border: 1px solid var(--accent-color);
+  color: var(--accent-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  width: 150px;
+  pointer-events: auto;
+}
+#sound-btn .icon { width: 16px; height: 16px; display: block; }
+
+/* Bottom-left phone */
+#bottom-left {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  position: fixed;
+  left: var(--side-offset);
+  bottom: var(--vertical-offset);
+  height: var(--social-btn-h);
+  gap: 8px;
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 420ms ease, transform 420ms ease;
+}
+.tel {
+  font-family: "UIFont", sans-serif;
+  color: var(--accent-color);
+  text-decoration: none;
+  font-size: var(--tel-font-size);
+  letter-spacing: 0.4px;
+  transition: text-decoration 160ms ease, opacity 160ms ease, transform 160ms ease;
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 8px;
+}
+.tel:hover, .tel:focus { text-decoration: underline; outline: none; }
+
+/* Bottom-right socials (icons -> text on hover) */
+#bottom-right {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: fixed;
+  right: var(--side-offset);
+  bottom: var(--vertical-offset);
+  height: var(--social-btn-h);
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 420ms ease, transform 420ms ease;
+}
+.social-btn {
+  position: relative;
+  width: var(--social-btn-w);
+  height: var(--social-btn-h);
+  min-width: var(--social-btn-w);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent-color);
+  text-decoration: none;
+  cursor: pointer;
+  pointer-events: auto;
+  overflow: visible;
+  border: none;
+  -webkit-tap-highlight-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.social-icon, .social-text {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-block;
+  line-height: 1;
+  pointer-events: none;
+}
+.social-icon {
+  width: var(--social-icon-size);
+  height: var(--social-icon-size);
+  transition: opacity 200ms ease, transform 200ms ease;
+  opacity: 1;
+}
+.social-text {
+  opacity: 0;
+  transform: translate(-50%, -50%) translateY(6px);
+  transition: opacity 200ms ease, transform 200ms ease;
+  font-family: "UIFont", sans-serif;
+  font-size: var(--social-text-size);
+  color: var(--accent-color);
+  white-space: nowrap;
+  text-align: center;
+  width: 100%;
+}
+.social-btn:hover .social-icon,
+.social-btn:focus .social-icon { opacity: 0; transform: translate(-50%, -50%) translateY(-6px); }
+.social-btn:hover .social-text,
+.social-btn:focus .social-text { opacity: 1; transform: translate(-50%, -50%) translateY(0); }
+.social-btn:focus { outline: 2px solid rgba(142,136,126,0.14); outline-offset: 2px; border-radius: 10px; }
+
+/* Corner item visibility toggles (animated entrance) */
+#top-left, #top-right, #bottom-left, #bottom-right {
+  transition: opacity 420ms ease, transform 420ms ease;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+#topbar.visible #top-left,
+#topbar.visible #top-right,
+#bottombar.visible #bottom-left,
+#bottombar.visible #bottom-right {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  #lottie-container { width: 160px; height: 160px; }
+  #logo-left { width: 68px; }
+  #sound-btn { padding: 6px 10px; font-size: 12px; width: auto; }
+  :root{
+    --tel-font-size: 1.05rem;
+    --social-btn-w: 56px;
+    --social-btn-h: 48px;
+    --social-icon-size: 28px;
+    --social-text-size: 0.85rem;
+    --vertical-offset: 24px;
+  }
+  #bottom-right { gap: 6px; }
+}
+
+/* existing font-face and :root variables remain unchanged (not repeated here) */
+
+/* --- Preloader brand: make title same width as eden.svg --- */
+.preloader-brand {
+  display: inline-block;       /* shrink-wrap to eden image width */
+  text-align: center;
+  margin-top: 8px;
+  pointer-events: none;
+}
+
+/* preloader title will expand to the wrapper width */
+#preloader-title {
+  color: var(--accent-color);
+  /* font-size: 24px; */
+  margin:  0 8px 0;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 400ms ease, transform 400ms ease;
+  pointer-events: none;
+  font-family: "UIFont", serif;
+  letter-spacing: 10px;
+  width: 100%;         /* match eden image width (via wrapper) */
+  box-sizing: border-box;
+}
+
+/* eden image: natural width, centered by wrapper */
+#eden-logo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 360px;    /* optional cap — adjust to taste */
+}
+
+/* --- Reuse social-btn styling for tel button (no extra visual changes needed) --- */
+/* ensure .social-btn style already present in your file (kept from previous CSS) */
+
+/* Example social-btn snippet (should be in your CSS already — included for clarity) */
+.social-btn {
+  position: relative;
+  width: var(--social-btn-w);
+  height: var(--social-btn-h);
+  min-width: var(--social-btn-w);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent-color);
+  text-decoration: none;
+  cursor: pointer;
+  pointer-events: auto;
+  overflow: visible;
+  border: none;
+  -webkit-tap-highlight-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* icon + text overlay */
+.social-icon,
+.social-text {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-block;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.social-icon {
+  width: var(--social-icon-size);
+  height: var(--social-icon-size);
+  transition: opacity 200ms ease, transform 200ms ease;
+  opacity: 1;
+}
+
+.social-text {
+  opacity: 0;
+  transform: translate(-50%, -50%) translateY(6px);
+  transition: opacity 200ms ease, transform 200ms ease;
+  font-family: "UIFont", sans-serif;
+  font-size: var(--social-text-size);
+  color: var(--accent-color);
+  white-space: nowrap;
+  text-align: center;
+  width: 100%;
+}
+
+/* hover/focus crossfade */
+.social-btn:hover .social-icon,
+.social-btn:focus .social-icon {
+  opacity: 0;
+  transform: translate(-50%, -50%) translateY(-6px);
+}
+
+.social-btn:hover .social-text,
+.social-btn:focus .social-text {
+  opacity: 1;
+  transform: translate(-50%, -50%) translateY(0);
+}
+
+/* small responsive tweaks (keep your existing @media rules) */
+@media (max-width: 640px) {
+  #lottie-container { width: 160px; height: 160px; }
+  #logo-left { width: 68px; }
+  #sound-btn { padding: 6px 10px; font-size: 12px; width: auto; }
+  :root{
+    --tel-font-size: 1.05rem;
+    --social-btn-w: 56px;
+    --social-btn-h: 48px;
+    --social-icon-size: 28px;
+    --social-text-size: 0.85rem;
+    --vertical-offset: 24px;
+  }
+  #bottom-right { gap: 6px; }
+
+  /* ensure preloader-brand scales nicely on small screens */
+  .preloader-brand { max-width: 80vw; }
+  #eden-logo { max-width: 100%; height: auto; }
+}
+
+/* Preloader brand: eden logo appearance */
+#eden-logo {
+  display: block;
+  margin: 8px auto 0;
+  max-width: 360px; /* optional cap — adjust as you like */
+  width: auto;
+  height: auto;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 400ms ease, transform 400ms ease;
+  pointer-events: none;
+}
+
+#eden-logo.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Ensure preloader title width is respected when set inline */
+#preloader-title {
+  box-sizing: border-box;
+  display: block;
+  margin: 5px auto;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ensure overlay and preloader never clip children */
+#ui-overlay,
+#preloader {
+  overflow: visible;      /* don't cut off transformed children */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* make preloader text roomier so glyphs and antialiasing don't get clipped */
+#preloader-title {
+  line-height: 1.15;      /* leave a bit more vertical space for the text */
+  padding-bottom: 2px;    /* tiny pad in case of subpixel clipping */
+}
+
+/* eden logo below title: ensure it doesn't overlap the text */
+#eden-logo {
+  display: block;
+  margin-top: 10px;       /* space between title and eden svg */
+  max-width: 420px;       /* or whatever fits your layout */
+  width: auto;
+  height: auto;
+}
+
+/* make sure images don't introduce whitespace layout surprises */
+#preloader img,
+#preloader svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* if you still see clipping on some browsers, nudge the preloader stacking */
+#preloader {
+  z-index: 9999; /* place it above weird stacking contexts while preloader visible */
+}
