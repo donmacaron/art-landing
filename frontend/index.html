@@ -11,18 +11,16 @@
       <!-- TOP BAR -->
       <div id="topbar" role="banner" aria-hidden="false">
         <div class="bar-inner">
-          <!-- left: new sense.svg logo -->
+          <!-- left: sound button -->
           <div id="top-left" class="bar-item">
-            <img id="logo-left" src="/sense.svg" alt="Sense logo" />
-          </div>
-
-          <!-- right: sound button -->
-          <div id="top-right" class="bar-item">
             <button id="sound-btn" aria-pressed="false">
               <span>Sound on</span>
               <img class="icon" src="/sound-icon.svg" alt="" />
             </button>
           </div>
+
+          <!-- right: (optional placeholder, empty for now) -->
+          <div id="top-right" class="bar-item"></div>
         </div>
       </div>
 
@@ -41,26 +39,26 @@
     <!-- BOTTOM BAR -->
     <div id="bottombar" role="contentinfo" aria-hidden="false">
       <div class="bar-inner">
-        <!-- left: telephone as icon -> expands to two buttons -->
-        <div id="bottom-left" class="bar-item">
-          <!-- wrapper for the interactive phone panel -->
+        <!-- left spacer (keeps visual balance) -->
+        <div id="bottom-left" class="bar-item"></div>
+
+        <!-- center: sense logo (moved from top-left) -->
+        <div id="bottom-center" class="bar-item">
+          <img id="sense-logo-bottom" src="/sense.svg" alt="Sense logo" />
+        </div>
+
+        <!-- right: telephone as icon -> expands to two pill buttons -->
+        <div id="bottom-right" class="bar-item">
           <div class="tel-panel" id="tel-panel">
-            <!-- collapsed: button with icon (acts as toggle) -->
             <button id="tel-toggle" class="tel-toggle" aria-expanded="false" aria-controls="tel-actions" title="Контакты">
               <img src="/tel.svg" alt="Telephone icon" class="tel-icon" />
             </button>
 
-            <!-- expanded actions — hidden by default -->
             <div id="tel-actions" class="tel-actions" role="region" aria-hidden="true">
               <a class="tel-action" id="call-action" href="tel:+74951099999" role="button">Позвонить</a>
               <a class="tel-action" id="wa-action" href="https://wa.me/+74951099999" target="_blank" rel="noopener noreferrer">Написать в WhatsApp</a>
             </div>
           </div>
-        </div>
-
-        <!-- right: (removed other socials) empty spacer to keep layout -->
-        <div id="bottom-right" class="bar-item">
-          <!-- intentionally left blank (socials removed) -->
         </div>
       </div>
     </div>

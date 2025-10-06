@@ -4,9 +4,10 @@
   --vertical-offset: 32px;
   --tel-font-size: 1.3rem;
   --social-btn-w: 64px;
-  --social-btn-h: 36px;
+  --social-btn-h: 36px;           /* button height */
   --social-icon-size: 36px;
   --social-text-size: 0.9rem;
+  --btn-bg-colour: rgba(233, 230, 228, 0.5);
   --veil-color: #E9E6E4;
   --accent-color: #8E887E;
   --transition-fast: 180ms;
@@ -53,7 +54,6 @@ canvas {
 }
 
 /* OVERLAY & BARS */
-
 #ui-overlay {
   position: fixed;
   inset: 0;
@@ -87,7 +87,9 @@ canvas {
   pointer-events: auto;
 }
 
+/* bar inner is the layout root for left/center/right */
 .bar-inner {
+  position: relative; /* used for absolute centering of bottom-center */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -96,11 +98,8 @@ canvas {
   box-sizing: border-box;
 }
 
-
-/* CORNER UTEMS */
-/* common corner animation */
+/* CORNER ITEMS */
 #top-left, #top-right, #bottom-left, #bottom-right {
-  position: fixed;
   opacity: 0;
   transform: translateY(-6px);
   transition: opacity 600ms ease, transform 600ms ease;
@@ -115,27 +114,21 @@ canvas {
   pointer-events: auto;
 }
 
-/* top-left logo */
+/* top-left placeholder (logo moved) */
 #top-left {
-  left: var(--side-offset);
-  top: var(--vertical-offset);
-}
-#logo-left {
-  display: block;
-  width: 130px;
+  width: 130px; /* placeholder size to keep layout consistent */
   height: auto;
 }
 
 /* top-right sound */
 #top-right {
-  right: var(--side-offset);
-  top: var(--vertical-offset);
+  pointer-events: auto;
 }
 #sound-btn {
   font-family: "UIFont", sans-serif;
   font-size: 1rem;
   padding: 5px 24px;
-  background: var(--veil-color);
+  background: var(--btn-bg-colour);
   border: 1px solid var(--accent-color);
   color: var(--accent-color);
   border-radius: 999px;
@@ -146,10 +139,31 @@ canvas {
   width: 150px;
 }
 
-/* bottom-left tel area */
+/* bottom-left spacer */
 #bottom-left {
-  left: var(--side-offset);
-  bottom: var(--vertical-offset);
+  width: 130px; /* balance left/right when center item is absolutely centered */
+}
+
+/* bottom-center: sense logo (absolutely centered within bar-inner) */
+#bottom-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#sense-logo-bottom {
+  display: block;
+  height: 16px;
+  width: auto;
+  max-width: 48vw;
+}
+
+/* bottom-right tel area */
+#bottom-right {
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -160,7 +174,6 @@ canvas {
   display: inline-flex;
   align-items: center;
   position: relative;
-  /* collapsed width keeps only the icon visible */
   width: 56px;
   height: var(--social-btn-h);
   transition: width var(--transition-med) ease, height var(--transition-med) ease;
@@ -185,43 +198,39 @@ canvas {
 .tel-toggle:active { transform: scale(0.96); }
 .tel-icon { width: 28px; height: 28px; display:block; }
 
-/* actions container (hidden when collapsed) */
+/* actions container (positioned to the LEFT of the toggle) */
 .tel-actions {
   position: absolute;
-  left: 64px; /* space to the right of icon */
-  top: 0;
+  right: 64px; /* position actions to the left of the toggle */
+  top: 50%;
+  transform: translateY(-50%) translateY(6px); /* slight downward start offset */
   display: flex;
-  gap: 0; /* no gap */
-  align-items: stretch;
+  gap: 8px; /* small space between pill buttons */
+  align-items: center;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(6px);
   transition: opacity var(--transition-med) ease, transform var(--transition-med) ease;
+  will-change: opacity, transform;
 }
 
-/* each action auto-sizes by content */
+/* each action auto-sizes by content and is pill-shaped */
 .tel-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 14px; /* keep some breathing space */
-  border-radius: 0;
+  padding: 0 16px;
+  border-radius: 999px;             /* pill shape */
   text-decoration: none;
   height: var(--social-btn-h);
-  background: transparent;
-  border: solid 0.5px;
+  background: var(--btn-bg-colour);
+  border: 1px solid rgba(0,0,0,0.06);
   color: var(--accent-color);
   font-family: "UIFont", sans-serif;
   font-size: 0.95rem;
-  transition: background var(--transition-fast) ease, color var(--transition-fast) ease;
+  transition: background var(--transition-fast) ease, color var(--transition-fast) ease, border-color var(--transition-fast) ease;
   box-sizing: border-box;
   white-space: nowrap; /* prevent wrapping */
-  width: auto; /* NEW: size depends on text */
-}
-
-/* separator line */
-.tel-action + .tel-action {
-  border-left: 1px solid rgba(0,0,0,0.06);
+  width: auto; /* size depends on text length */
 }
 
 /* hover */
@@ -233,6 +242,8 @@ canvas {
   outline: none;
 }
 
+
+
 /* open state */
 .tel-panel.open {
   width: auto;
@@ -240,16 +251,7 @@ canvas {
 .tel-panel.open .tel-actions {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
-}
-
-/* bottom-right (now empty but keep spacing) */
-#bottom-right {
-  right: var(--side-offset);
-  bottom: var(--vertical-offset);
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  transform: translateY(-50%) translateY(0);
 }
 
 /* PRELOADER */
@@ -272,6 +274,9 @@ canvas {
   display: inline-block;
   text-align: center;
 }
+
+
+
 
 #lottie-container {
   width: 220px;
@@ -339,12 +344,15 @@ canvas {
   .preloader-brand { max-width: 80vw; }
   #eden-logo { max-width: 100%; }
 
-  /* make tel actions stack on small screens */
+  /* make tel actions stack on very small screens */
+  .tel-actions {
+    right: 64px;
+    gap: 8px;
+  }
   .tel-action {
     min-width: 90px;
     height: 42px;   /* shorter on small screens */
     font-size: 0.85rem;
     padding: 8px 10px;
   }
-  .tel-action { min-width: 90px; padding: 8px 10px; }
 }
