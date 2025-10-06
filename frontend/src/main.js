@@ -60,9 +60,11 @@ const topLeft = document.getElementById('top-left');
 const topRight = document.getElementById('top-right');
 const soundBtn = document.getElementById('sound-btn');
 
+const lottieContainer = document.getElementById(lottieContainerId);
+
 /* ========== Lottie preloader ========== */
 const animation = lottie.loadAnimation({
-  container: document.getElementById(lottieContainerId),
+  container: lottieContainer,
   renderer: 'svg',
   loop: false,
   autoplay: true,
@@ -88,13 +90,17 @@ animation.addEventListener('complete', () => {
 });
 animation.addEventListener('DOMLoaded', () => { /* no-op */ });
 
-function finalizePreloader() {
-  if (preloaderFinalized) return;
-  preloaderFinalized = true;
+/**
+ * Replace the lottie SVG inside #lottie-container with a static image /main-logo.svg
+ * using a true crossfade: fade out the SVG and fade in the <img> simultaneously.
+ */
+function replaceLottieWithMainLogo() {
+  if (!lottieContainer) return;
 
-  // stop lottie on last frame (best-effort)
+  // Stop Lottie on last frame
   try {
-    const total = animation.totalFrames || Math.round((animation.getDuration ? animation.getDuration(true) : 1) * 60) || 1;
+    const total = animation.totalFrames ||
+      Math.round((animation.getDuration ? animation.getDuration(true) : 2) * 60) || 1;
     if (typeof animation.goToAndStop === 'function') {
       animation.goToAndStop(Math.max(0, total - 1), true);
     } else if (typeof animation.pause === 'function') {
@@ -103,6 +109,81 @@ function finalizePreloader() {
   } catch (e) {
     console.warn('Could not stop lottie on last frame:', e);
   }
+
+  try { animation.destroy(); } catch (e) {}
+
+  const svg = lottieContainer.querySelector('svg');
+  if (!svg) {
+    lottieContainer.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = '/main-logo.svg';
+    img.alt = 'Main logo';
+    img.id = 'main-logo';
+    img.style.opacity = '1';
+    img.style.maxWidth = '320px';
+    img.style.display = 'block';
+    img.style.margin = '0 auto';
+    lottieContainer.appendChild(img);
+    return img;
+  }
+
+  const prevPosition = lottieContainer.style.position;
+  lottieContainer.style.position = 'relative';
+
+  // Fade-out styling
+  svg.style.position = 'absolute';
+  svg.style.top = '0';
+  svg.style.left = '0';
+  svg.style.width = '100%';
+  svg.style.height = '100%';
+  svg.style.opacity = '1';
+  svg.style.transition = 'opacity 650ms cubic-bezier(0.4, 0, 0.2, 1)';
+  svg.style.willChange = 'opacity';
+
+  // Fade-in styling
+  const img = document.createElement('img');
+  img.src = '/main-logo.svg';
+  img.alt = 'Main logo';
+  img.id = 'main-logo';
+  img.style.position = 'absolute';
+  img.style.top = '0';
+  img.style.left = '0';
+  img.style.width = '100%';
+  img.style.height = '100%';
+  img.style.opacity = '0';
+  img.style.transform = 'scale(0.98)';
+  img.style.transition = 'opacity 650ms cubic-bezier(0.4, 0, 0.2, 1), transform 650ms cubic-bezier(0.4, 0, 0.2, 1)';
+  img.style.willChange = 'opacity, transform';
+  lottieContainer.appendChild(img);
+
+  // Crossfade with slight stagger
+  requestAnimationFrame(() => {
+    svg.style.opacity = '0';
+    setTimeout(() => {
+      img.style.opacity = '1';
+      img.style.transform = 'scale(1)';
+    }, 100); // overlap delay
+  });
+
+  // Cleanup after fade
+  setTimeout(() => {
+    if (svg.parentNode) lottieContainer.removeChild(svg);
+    lottieContainer.style.position = prevPosition;
+    img.style.position = '';
+    img.style.width = '';
+    img.style.height = '';
+  }, 500); // a bit longer than 420ms
+
+  return img;
+}
+
+
+function finalizePreloader() {
+  if (preloaderFinalized) return;
+  preloaderFinalized = true;
+
+  // Replace Lottie with main logo image (crossfade)
+  replaceLottieWithMainLogo();
 
   // start ink interactions/animations only once preloader is done
   try {
@@ -129,9 +210,7 @@ function finalizePreloader() {
     if (edenLogo) {
       // measure element width (rendered). If not loaded yet, wait for load event.
       const apply = () => {
-        // measure bounding width (CSS pixels)
         const rect = edenLogo.getBoundingClientRect();
-        // ensure at least some width
         const w = Math.max(32, Math.round(rect.width || edenLogo.naturalWidth || 200));
         preloaderTitle.style.width = w + 'px';
         preloaderTitle.classList.add('visible');
@@ -141,18 +220,14 @@ function finalizePreloader() {
       if (edenLogo.complete && (edenLogo.naturalWidth || edenLogo.width)) {
         apply();
       } else {
-        // if image not loaded, wait for it but also guard with a timeout fallback
         let applied = false;
         const onload = () => { if (!applied) { applied = true; apply(); } };
         edenLogo.addEventListener('load', onload, { once: true });
-
-        // fallback in case load doesn't fire quickly (e.g. caching oddities)
         setTimeout(() => {
           if (!applied) { applied = true; apply(); }
         }, 300);
       }
     } else {
-      // no eden logo present — just show title normally
       preloaderTitle.classList.add('visible');
     }
   }

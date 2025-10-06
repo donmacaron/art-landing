@@ -223,7 +223,7 @@ canvas {
   text-decoration: none;
   height: var(--social-btn-h);
   background: var(--btn-bg-colour);
-  border: 1px solid rgba(0,0,0,0.06);
+  border: 1px solid var(--accent-color);
   color: var(--accent-color);
   font-family: "UIFont", sans-serif;
   font-size: 0.95rem;
@@ -241,8 +241,6 @@ canvas {
   color: #fff;
   outline: none;
 }
-
-
 
 /* open state */
 .tel-panel.open {
@@ -275,15 +273,13 @@ canvas {
   text-align: center;
 }
 
-
-
-
+/* lottie container size */
 #lottie-container {
   width: 283px;
   pointer-events: none;
 }
 
-/* logo */
+/* new combined logo (keeps same behavior/constraints as previous eden-logo) */
 #eden-logo {
   display: block;
   width: auto;
@@ -292,33 +288,31 @@ canvas {
   opacity: 0;
   transform: translateY(6px);
   transition: opacity var(--transition-med) ease, transform var(--transition-med) ease;
+  pointer-events: none;
 }
 #eden-logo.visible {
   opacity: 1;
   transform: translateY(0);
 }
 
-/* title fills the wrapper’s width exactly */
+/* keep preloader-title element (empty). It's measured by JS; visually hide but keep width support */
 #preloader-title {
   box-sizing: border-box;
   display: block;
-  margin-top: 15px;
-  padding-bottom: 2px;
-  line-height: 1.15;
-  color: var(--accent-color);
+  margin-top: 0;
+  padding: 0;
+  height: 0;
+  line-height: 0;
+  color: transparent;
   font-family: "UIFont", serif;
-  font-size: 21px;
-  letter-spacing: 10px;
-  width: 100%;
+  font-size: 0;
+  letter-spacing: 0;
+  width: 0;
   white-space: nowrap;
   overflow: hidden;
   opacity: 0;
-  transform: translateY(6px);
-  transition: opacity var(--transition-med) ease, transform var(--transition-med) ease;
-}
-#preloader-title.visible {
-  opacity: 1;
-  transform: translateY(0);
+  transform: none;
+  transition: none;
 }
 
 /* RESPONSIVE TWEAKS */
@@ -355,4 +349,5 @@ canvas {
     font-size: 0.85rem;
     padding: 8px 10px;
   }
+  .tel-action { min-width: 90px; padding: 8px 10px; }
 }

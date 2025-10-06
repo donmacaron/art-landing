@@ -28,10 +28,14 @@
       <div id="preloader">
         <div id="lottie-container" aria-hidden="true"></div>
 
-        <!-- brand wrapper: makes the title width match the eden.svg width -->
+        <!-- brand wrapper: replaced eden+title with single combined logo image.
+             Keep #preloader-title element (empty) so existing JS that measures it
+             keeps working. -->
         <div class="preloader-brand" aria-hidden="true">
-          <img id="eden-logo" src="/eden-3.svg" alt="Eden" />
-          <div id="preloader-title">PRIVATE RESIDENCE</div>
+          <!-- NEW combined logo file -->
+          <img id="eden-logo" src="/EDEN_PR.svg" alt="Eden" />
+          <!-- We keep the element so JS can still set width; leave it empty intentionally -->
+          <div id="preloader-title" aria-hidden="true"></div>
         </div>
       </div>
     </div>
