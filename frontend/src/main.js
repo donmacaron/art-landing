@@ -97,21 +97,25 @@ animation.addEventListener('DOMLoaded', () => { /* no-op */ });
 function replaceLottieWithMainLogo() {
   if (!lottieContainer) return;
 
-  // Stop Lottie on last frame
+  // --- MODIFICATIONS FOR SMOOTHNESS ---
+  const DURATION = 3500; // ms (Increased from 850)
+  const EASING = 'cubic-bezier(0.42, 0, 0.58, 1)'; // Changed to a standard 'ease-in-out'
+
+  // stop and destroy lottie safely
   try {
-    const total = animation.totalFrames ||
-      Math.round((animation.getDuration ? animation.getDuration(true) : 2) * 60) || 1;
-    if (typeof animation.goToAndStop === 'function') {
+    const total = animation && (animation.totalFrames ||
+      Math.round((animation.getDuration ? animation.getDuration(true) : 2) * 160) || 1);
+    if (animation && typeof animation.goToAndStop === 'function') {
       animation.goToAndStop(Math.max(0, total - 1), true);
-    } else if (typeof animation.pause === 'function') {
+    } else if (animation && typeof animation.pause === 'function') {
       animation.pause();
     }
   } catch (e) {
     console.warn('Could not stop lottie on last frame:', e);
   }
+  try { animation && animation.destroy(); } catch (e) {}
 
-  try { animation.destroy(); } catch (e) {}
-
+  // if no svg (lottie failed to render) just swap immediately
   const svg = lottieContainer.querySelector('svg');
   if (!svg) {
     lottieContainer.innerHTML = '';
@@ -119,63 +123,114 @@ function replaceLottieWithMainLogo() {
     img.src = '/main-logo.svg';
     img.alt = 'Main logo';
     img.id = 'main-logo';
-    img.style.opacity = '1';
     img.style.maxWidth = '320px';
     img.style.display = 'block';
     img.style.margin = '0 auto';
-    lottieContainer.appendChild(img);
-    return img;
+    
+    return lottieContainer.appendChild(img);
   }
 
+  // prepare container and elements
   const prevPosition = lottieContainer.style.position;
-  lottieContainer.style.position = 'relative';
+  lottieContainer.style.position = prevPosition || 'relative';
+  lottieContainer.style.overflow = 'hidden';
 
-  // Fade-out styling
-  svg.style.position = 'absolute';
-  svg.style.top = '0';
-  svg.style.left = '0';
-  svg.style.width = '100%';
-  svg.style.height = '100%';
-  svg.style.opacity = '1';
-  svg.style.transition = 'opacity 650ms cubic-bezier(0.4, 0, 0.2, 1)';
-  svg.style.willChange = 'opacity';
+  // ensure both layers sit exactly on top of each other
+  Object.assign(svg.style, {
+    position: 'absolute',
+    inset: '0',
+    width: '100%',
+    height: '100%',
+    opacity: '1',
+    transform: 'translateZ(0) scale(1)',
+    filter: 'blur(0px)',
+    transition: `opacity ${DURATION}ms ${EASING}, filter ${DURATION}ms ${EASING}, transform ${DURATION}ms ${EASING}`,
+    willChange: 'opacity, filter, transform',
+    pointerEvents: 'none'
+  });
 
-  // Fade-in styling
   const img = document.createElement('img');
   img.src = '/main-logo.svg';
   img.alt = 'Main logo';
   img.id = 'main-logo';
-  img.style.position = 'absolute';
-  img.style.top = '0';
-  img.style.left = '0';
-  img.style.width = '100%';
-  img.style.height = '100%';
-  img.style.opacity = '0';
-  img.style.transform = 'scale(0.98)';
-  img.style.transition = 'opacity 650ms cubic-bezier(0.4, 0, 0.2, 1), transform 650ms cubic-bezier(0.4, 0, 0.2, 1)';
-  img.style.willChange = 'opacity, transform';
-  lottieContainer.appendChild(img);
-
-  // Crossfade with slight stagger
-  requestAnimationFrame(() => {
-    svg.style.opacity = '0';
-    setTimeout(() => {
-      img.style.opacity = '1';
-      img.style.transform = 'scale(1)';
-    }, 100); // overlap delay
+  Object.assign(img.style, {
+    position: 'absolute',
+    inset: '0',
+    width: '100%',
+    height: '100%',
+    maxWidth: '',
+    maxHeight: '',
+    display: 'block',
+    margin: '0',
+    opacity: '0',
+    // --- MODIFICATION: Start slightly smaller for a smoother zoom-in ---
+    transform: 'translateZ(0) scale(0.97)',
+    transition: `opacity ${DURATION}ms ${EASING}, transform ${DURATION}ms ${EASING}`,
+    willChange: 'opacity, transform',
+    pointerEvents: 'none'
   });
 
-  // Cleanup after fade
-  setTimeout(() => {
-    if (svg.parentNode) lottieContainer.removeChild(svg);
-    lottieContainer.style.position = prevPosition;
-    img.style.position = '';
-    img.style.width = '';
-    img.style.height = '';
-  }, 500); // a bit longer than 420ms
+  lottieContainer.appendChild(img);
 
+  // Force layout then start transition
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    svg.style.opacity = '0';
+    svg.style.filter = 'blur(3px)'; // --- MODIFICATION: Slightly more blur for a softer exit ---
+    // --- MODIFICATION: Have the old logo expand slightly as it fades for a "dissolve" effect ---
+    svg.style.transform = 'translateZ(0) scale(1.03)';
+
+    // slight stagger for perceived smoothness
+    setTimeout(() => {
+      img.style.opacity = '1';
+      img.style.transform = 'translateZ(0) scale(1)';
+    }, 200); // --- MODIFICATION: Increased stagger from 60ms to 200ms
+  }));
+
+  // Cleanup once transitions finish. Use both transitionend and a timeout fallback.
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+
+    if (svg.parentNode) svg.parentNode.removeChild(svg);
+
+    // make the img a normal flow element again
+    Object.assign(img.style, {
+      position: '',
+      inset: '',
+      width: '',
+      height: '',
+      transform: '',
+      transition: '',
+      willChange: '',
+      pointerEvents: ''
+    });
+
+    lottieContainer.style.position = prevPosition || '';
+    lottieContainer.style.overflow = '';
+  };
+
+  const onTransitionEnd = (e) => {
+    // wait for the image opacity/transform to finish
+    if (e.target === img) finish();
+  };
+
+  img.addEventListener('transitionend', onTransitionEnd, { once: true });
+
+  // fallback in case transitionend doesn't fire
+  const fallbackTimeout = setTimeout(() => finish(), DURATION + 250); // Adjusted fallback timeout
+
+  // ensure cleanup of timeout if we finished earlier
+  const wrappedFinish = () => {
+    clearTimeout(fallbackTimeout);
+    finish();
+  };
+
+  // replace finish function used by event and timeout
+  img.addEventListener('transitionend', () => clearTimeout(fallbackTimeout), { once: true });
   return img;
 }
+
 
 
 function finalizePreloader() {
