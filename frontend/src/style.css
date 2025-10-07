@@ -47,6 +47,13 @@ body {
   padding: 0;
 }
 
+.svg-smooth {
+  image-rendering: auto;
+  shape-rendering: geometricPrecision; 
+  transform: translateZ(0);
+  will-change: transform, opacity;
+}
+
 canvas {
   display: block;
   width: 100vw;
