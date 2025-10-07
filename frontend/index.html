@@ -15,7 +15,7 @@
           <div id="top-left" class="bar-item">
             <button id="sound-btn" aria-pressed="false">
               <span>Sound on</span>
-              <img class="icon" src="/sound-icon.svg" alt="" />
+              <img class="icon" id="sound-icon" src="/sound-icon.svg" alt="" />
             </button>
           </div>
 
@@ -26,15 +26,15 @@
 
       <!-- center preloader -->
       <div id="preloader">
-        <div id="lottie-container" aria-hidden="true"></div>
+        <!-- LOTTIE WRAP: main-logo sits under the lottie animation -->
+        <div class="lottie-wrap" aria-hidden="true">
+          <img id="main-logo" src="/main-logo.svg" alt="Eden main logo" />
+          <div id="lottie-container" aria-hidden="true"></div>
+        </div>
 
-        <!-- brand wrapper: replaced eden+title with single combined logo image.
-             Keep #preloader-title element (empty) so existing JS that measures it
-             keeps working. -->
+        <!-- brand wrapper: keep preloader-title element for JS measurement -->
         <div class="preloader-brand" aria-hidden="true">
-          <!-- NEW combined logo file -->
-          <img id="eden-logo" src="/EDEN_PR.svg" alt="Eden" />
-          <!-- We keep the element so JS can still set width; leave it empty intentionally -->
+          <img id="eden-logo" src="/EDEN_PR2.svg" alt="Eden" />
           <div id="preloader-title" aria-hidden="true"></div>
         </div>
       </div>
@@ -59,14 +59,13 @@
             </button>
 
             <div id="tel-actions" class="tel-actions" role="region" aria-hidden="true">
-              <a class="tel-action" id="call-action" href="tel:+74951099999" role="button">Позвонить</a>
-              <a class="tel-action" id="wa-action" href="#" target="_blank" rel="noopener noreferrer">Оставить заявку</a>
+              <a class="tel-action" id="call-action" href="" role="button">Позвонить</a>
+              <a class="tel-action" id="wa-action" href="" target="_blank" rel="noopener noreferrer">Оставить заявку</a>
             </div>
           </div>
         </div>
       </div>
     </div>
-
     <script type="module" src="/src/main.js"></script>
     <script type="module" src="/src/tel-panel.js"></script>
   </body>
