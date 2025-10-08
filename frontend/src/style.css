@@ -1,6 +1,6 @@
 /*────────── Variables ──────────*/
 :root {
-  --side-offset: 25px;
+  --side-offset: 35px;
   --vertical-offset: 32px;
   --tel-font-size: 1.3rem;
   --social-btn-w: 64px;
@@ -104,7 +104,7 @@ canvas {
   padding: 22px var(--side-offset);
   box-sizing: border-box;
 }
-
+.bottom-bar { padding: 32px var(--side-offset); }
 /* CORNER ITEMS */
 #top-left, #top-right, #bottom-left, #bottom-right {
   opacity: 0;
@@ -177,7 +177,7 @@ canvas {
 }
 #sense-logo-bottom {
   display: block;
-  height: 16px;
+  height: 26px;
   width: auto;
   max-width: 48vw;
 }
