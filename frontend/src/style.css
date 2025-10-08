@@ -298,7 +298,8 @@ canvas {
 /* LOTTIE WRAP + MAIN LOGO */
 .lottie-wrap {
   width: clamp(160px, 36vw, 250px);
-  aspect-ratio: 1 / 1;
+  max-height: 40vh;              /* prevents huge logos on tall screens */
+  aspect-ratio: 1 / 1;           /* keep if your logos are square — otherwise remove */
   position: relative;
   display: inline-block;
   box-sizing: border-box;
@@ -314,6 +315,8 @@ canvas {
   height: 100%;
   display: block;
   object-fit: contain; /* for <img> */
+  transform-origin: center;
+  will-change: opacity, transform;
 }
 
 /* main-logo sits under lottie, matches container width */
