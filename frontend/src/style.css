@@ -177,7 +177,7 @@ canvas {
 }
 #sense-logo-bottom {
   display: block;
-  height: 20px;
+  height: 26px;
   width: auto;
   max-width: 48vw;
 }
@@ -281,7 +281,7 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 22px;
+  gap: 55px;
   text-align: center;
   pointer-events: none;
   z-index: 9999;
